@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Next.js generated files
+.next/
+out/
+
+# Kilo
+.kilo/
+
+# Environment / secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Local files / sensitive data
+cookies.txt
+
+# Logs
+*.log
+dev.log
+
+# TypeScript generated cache
+*.tsbuildinfo
+
+# Vercel
+.vercel/
+
+# OS files
+.DS_Store
+Thumbs.db

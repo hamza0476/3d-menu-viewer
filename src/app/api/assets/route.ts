@@ -1,0 +1,5 @@
+import { NextResponse } from 'next/server';
+import { db } from '@/db';
+import { assets } from '@/db/schema';
+import { getUser, uid } from '@/lib/auth';
+export async function POST(req: Request) { const user = await getUser(); if (!user) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 }); const form = await req.formData(); const file = form.get('file'); if (!(file instanceof File) || file.size > 20 * 1024 * 1024) return NextResponse.json({ error: 'Choose a file under 20 MB.' }, { status: 400 }); const isModel = file.name.toLowerCase().endsWith('.glb'); if (!isModel && !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return NextResponse.json({ error: 'Supported formats: JPG, PNG, WebP, and GLB.' }, { status: 400 }); const buffer = Buffer.from(await file.arrayBuffer()); if (isModel && buffer.subarray(0, 4).toString() !== 'glTF') return NextResponse.json({ error: 'This is not a valid GLB file.' }, { status: 400 }); const id = uid(); await db.insert(assets).values({ id, ownerId: user.id, data: buffer.toString('base64'), mime: isModel ? 'model/gltf-binary' : file.type }); return NextResponse.json({ url: '/api/assets/' + id }); }
