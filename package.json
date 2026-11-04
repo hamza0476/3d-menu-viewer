@@ -11,7 +11,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@playwright/test": "^1.63.0",
+    "@playwright/test": "^1.64.1",
     "@types/qrcode": "^1.5.6",
     "@types/three": "^0.185.4",
     "dotenv": "17.3.1",
