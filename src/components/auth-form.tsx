@@ -40,7 +40,7 @@ export default function AuthForm({ onClose, onSuccess, menuId }: { onClose: () =
           <form onSubmit={async e => { e.preventDefault(); setBusy(true); setError(''); const form = new FormData(e.currentTarget); try { await request('/api/auth', 'POST', { action: view, name: form.get('name'), email: form.get('email'), password: form.get('password') }); onSuccess(); } catch (e) { setError((e as Error).message); } finally { setBusy(false); } }}>
             {view === 'register' && <label>Your full name<input name="name" required placeholder="Alex Morgan" autoComplete="name" /></label>}
             <label>Email address<input name="email" type="email" required placeholder="alex@yourrestaurant.com" autoComplete="email" /></label>
-            <label>Password<input name="password" type="password" minLength={8} maxLength={128} required placeholder="At least 8 characters" autoComplete={view === 'login' ? 'current-password' : 'new-password'} /></label>
+            <label>Password<input name="password" type="password" minLength={view === 'register' ? 10 : undefined} maxLength={128} required placeholder={view === 'register' ? "At least 10 characters" : "Your password"} autoComplete={view === 'login' ? 'current-password' : 'new-password'} /></label>
             {view === 'login' && <p className="auth-switch" style={{ margin: '-9px 0 17px', textAlign: 'right' }}><button type="button" onClick={() => { setView('forgot'); setError(''); }}>Forgot password?</button></p>}
             {error && <div className="error-message">{error}</div>}
             <button className="btn primary full" disabled={busy}>{busy ? <Loader2 size={17} className="spin" /> : <ArrowRight size={17} />} {busy ? 'Please wait…' : view === 'login' ? 'Sign in' : 'Create your account'}</button>

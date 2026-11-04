@@ -2,15 +2,17 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { businesses, products } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { ownerBusiness, activity } from '@/lib/auth';
+import { activity } from '@/lib/auth';
+import { requireMembership } from '@/lib/tenancy';
 import { DEALS_CATEGORY } from '@/lib/demo';
 
 const MAX_CATEGORIES = 24;
 const clean = (v: unknown) => String(v || '').trim().slice(0, 40);
 
 export async function POST(req: Request) {
-  const business = await ownerBusiness();
-  if (!business) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 });
+  const membership = await requireMembership();
+  if (!membership) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 });
+  const business = membership.business;
   const { name } = await req.json();
   const value = clean(name);
   if (!value) return NextResponse.json({ error: 'Enter a category name.' }, { status: 400 });
@@ -25,8 +27,9 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  const business = await ownerBusiness();
-  if (!business) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 });
+  const membership = await requireMembership();
+  if (!membership) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 });
+  const business = membership.business;
   const body = await req.json();
   const current = business.categories;
 
@@ -53,8 +56,9 @@ export async function PATCH(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const business = await ownerBusiness();
-  if (!business) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 });
+  const membership = await requireMembership();
+  if (!membership) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 });
+  const business = membership.business;
   const { name } = await req.json();
   const value = clean(name);
   const current = business.categories;
