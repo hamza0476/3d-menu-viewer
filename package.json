@@ -11,7 +11,8 @@
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "assets:migrate": "node scripts/migrate-assets-to-storage.mjs"
   },
   "dependencies": {
     "@playwright/test": "^1.63.0",
