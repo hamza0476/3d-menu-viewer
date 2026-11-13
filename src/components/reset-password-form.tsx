@@ -27,7 +27,7 @@ export default function ResetPasswordForm({ token }: { token: string }) {
             onSubmit={async e => {
               e.preventDefault();
               setError('');
-              if (password.length < 8) return setError('Use a password of at least 8 characters.');
+              if (password.length < 10) return setError('Use a password of at least 10 characters.');
               if (password !== confirm) return setError('Passwords do not match.');
               setBusy(true);
               try {
@@ -41,9 +41,9 @@ export default function ResetPasswordForm({ token }: { token: string }) {
             }}
           >
             <h2 style={{ margin: '20px 0 4px' }}>Choose a new password</h2>
-            <p style={{ fontSize: 12, color: '#8a9b76', marginBottom: 17 }}>Make it at least 8 characters.</p>
-            <label>New password<input type="password" required minLength={8} maxLength={128} autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)} placeholder="At least 8 characters" /></label>
-            <label>Confirm password<input type="password" required minLength={8} maxLength={128} autoComplete="new-password" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="Type it again" /></label>
+            <p style={{ fontSize: 12, color: '#8a9b76', marginBottom: 17 }}>Make it at least 10 characters.</p>
+            <label>New password<input type="password" required minLength={10} maxLength={128} autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)} placeholder="At least 10 characters" /></label>
+            <label>Confirm password<input type="password" required minLength={10} maxLength={128} autoComplete="new-password" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="Type it again" /></label>
             {error && <div className="error-message">{error}</div>}
             <button className="btn primary full" disabled={busy}>{busy ? <Loader2 size={17} className="spin" /> : <ArrowRight size={17} />} {busy ? 'Saving…' : 'Update password'}</button>
             <p className="secure-note"><ShieldCheck size={15} /> This will sign you out of other devices for your security.</p>

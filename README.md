@@ -28,7 +28,7 @@ A restaurant workspace and guest-facing interactive menu, built with Next.js App
 1. Install dependencies: `npm ci`
 2. Start the local database: `docker compose up -d` (creates Postgres 16 on port 5432 with the credentials below; skip this if you use your own Postgres)
 3. Configure the environment: `cp .env.example .env` — the defaults match the Docker database. See `.env.example` for every variable the app reads; never commit a real `.env`.
-4. Apply the schema: `npx drizzle-kit push` (until the versioned migrations land in Phase 1 of the build plan, `push` is how the schema is applied — do **not** use it against a production database with real data)
+4. Apply the schema: `npm run db:migrate` — versioned migrations from the `drizzle/` folder. (`npm run db:push` exists for throwaway local prototyping only; never use it against a database holding real data, and never edit an already-applied migration — generate a new one with `npm run db:generate`.)
 5. Start the app: `npm run dev` → http://localhost:3000 — an anonymous visit creates a demo restaurant workspace automatically.
 6. Production build: `npm run build` then `npm run start`. In production, set the environment variables in the hosting platform's settings (never in files) and make sure `RESEND_API_KEY` is set so email verification and password resets are really delivered.
 

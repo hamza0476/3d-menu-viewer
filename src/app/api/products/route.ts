@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { products } from '@/db/schema';
 import { and, eq, inArray } from 'drizzle-orm';
-import { ownerBusiness, uid, activity } from '@/lib/auth';
+import { uid, activity } from '@/lib/auth';
+import { requireMembership } from '@/lib/tenancy';
 import { DISH_TAG_IDS, DEALS_CATEGORY } from '@/lib/demo';
 
 function values(b: Record<string, unknown>) {
@@ -42,8 +43,9 @@ async function assertValidDeal(businessId: string, selfId: string | undefined, d
 }
 
 export async function POST(req: Request) {
-  const business = await ownerBusiness();
-  if (!business) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 });
+  const membership = await requireMembership();
+  if (!membership) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 });
+  const business = membership.business;
   try {
     const data = values(await req.json());
     await assertValidDeal(business.id, undefined, data);
@@ -56,8 +58,9 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  const business = await ownerBusiness();
-  if (!business) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 });
+  const membership = await requireMembership();
+  if (!membership) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 });
+  const business = membership.business;
   try {
     const body = await req.json();
     const data = values(body);
@@ -72,8 +75,9 @@ export async function PATCH(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const business = await ownerBusiness();
-  if (!business) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 });
+  const membership = await requireMembership();
+  if (!membership) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 });
+  const business = membership.business;
   const { id } = await req.json();
   const deals = await db.select({ id: products.id, name: products.name, dealItems: products.dealItems }).from(products).where(and(eq(products.businessId, business.id), eq(products.isDeal, true)));
   const usedIn = deals.find(d => d.dealItems.includes(id));
