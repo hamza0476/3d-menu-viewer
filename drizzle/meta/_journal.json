@@ -8,6 +8,20 @@
       "when": 1793790000409,
       "tag": "0000_baseline",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794563735746,
+      "tag": "0001_asset-storage-columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794563743806,
+      "tag": "0002_asset-drop-data",
+      "breakpoints": true
     }
   ]
 }
