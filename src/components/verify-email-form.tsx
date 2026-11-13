@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { Loader2, CheckCheck, MailCheck } from 'lucide-react';
+import Link from 'next/link';
 import { Brand, request } from './ui';
 
 export default function VerifyEmailForm({ token }: { token: string }) {
@@ -18,7 +19,7 @@ export default function VerifyEmailForm({ token }: { token: string }) {
           <>
             <h2 style={{ marginTop: 20 }}>Email verified</h2>
             <p style={{ fontSize: 12, color: '#8a9b76', marginTop: 8 }}>Thanks — your email address is confirmed and your menu can be published.</p>
-            <a href="/dashboard" className="btn primary full" style={{ marginTop: 20 }}><CheckCheck size={16} /> Go to your dashboard</a>
+            <Link href="/dashboard" className="btn primary full" style={{ marginTop: 20 }}><CheckCheck size={16} /> Go to your dashboard</Link>
           </>
         ) : (
           <>
@@ -43,7 +44,7 @@ export default function VerifyEmailForm({ token }: { token: string }) {
             >
               {busy ? <Loader2 size={17} className="spin" /> : <MailCheck size={17} />} {busy ? 'Confirming…' : 'Verify my email'}
             </button>
-            <p className="auth-switch">Wrong account? <a href="/">Back to Platera</a></p>
+            <p className="auth-switch">Wrong account? <Link href="/">Back to Platera</Link></p>
           </>
         )}
       </div>
