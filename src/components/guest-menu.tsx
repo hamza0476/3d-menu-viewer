@@ -5,7 +5,7 @@ import { Box, Search, MapPin, ArrowUpRight, Sprout, Loader2, UtensilsCrossed, X,
 import { Brand, Empty, request, money, QRPanel } from './ui';
 import { DEALS_CATEGORY, DISH_TAGS, dishTagLabel, type Business, type Product } from '@/lib/demo';
 import DealViewer from './deal-viewer';
-const ProductViewer = dynamic(() => import('./product-viewer'), { ssr: false, loading: () => <div className="modal-overlay"><div className="loading-card"><Loader2 className="spin" />Preparing your 3D experience…</div></div> });
+const DishViewer = dynamic(() => import('./dish-viewer'), { ssr: false, loading: () => <div className="modal-overlay"><div className="loading-card"><Loader2 className="spin" />Preparing your 3D experience…</div></div> });
 
 // Anonymous per-session id for event de-duplication (Phase 3, S12). It is
 // generated per browser session, kept only in sessionStorage, and hashed
@@ -40,7 +40,7 @@ export default function GuestMenu({ business, products, table = null }: { busine
     if (!sessionStorage.getItem(visitKey)) { sessionStorage.setItem(visitKey, '1'); postGuestEvent(business.id, table, {}); }
   }, [business.id, table]);
 
-  function view(p: Product) { setViewing(p); postGuestEvent(business.id, table, { productId: p.id }); }
+  function view(p: Product) { setViewing(p); postGuestEvent(business.id, table, { productId: p.id }); if (p.model3d && (p.model3d.low || p.model3d.high)) postGuestEvent(business.id, table, { productId: p.id, type: '3d_open' }); }
   function toggleFavorite(pid: string) { setFavorites(prev => { const next = prev.includes(pid) ? prev.filter(x => x !== pid) : [...prev, pid]; try { localStorage.setItem('platera-favorites-' + business.id, JSON.stringify(next)); } catch {} return next; }); }
   function toggleAvoid(t: string) { setAvoid(v => v.includes(t) ? v.filter(x => x !== t) : [...v, t]); }
   function toggleDiet(t: string) { setDietOnly(v => v.includes(t) ? v.filter(x => x !== t) : [...v, t]); }
@@ -132,7 +132,7 @@ export default function GuestMenu({ business, products, table = null }: { busine
         <div className="guest-food-note"><Sprout size={22} /><p>Good food, good company, and a little curiosity.<br /><span>Dietary tags are set by the restaurant as a helpful guide — please still let your server know about any allergies.</span></p></div>
       </main>
       <footer className="guest-footer"><Brand small /><span>A little more than a menu.</span><span>Prices in {business.currency} · {business.name}</span></footer>
-      {viewing && (viewing.isDeal ? <DealViewer deal={viewing} items={products} currency={business.currency} onClose={() => setViewing(null)} onOpenItem={item => { postGuestEvent(business.id, table, { productId: item.id }); }} /> : <ProductViewer product={viewing} currency={business.currency} onClose={() => setViewing(null)} />)}
+      {viewing && (viewing.isDeal ? <DealViewer deal={viewing} items={products} currency={business.currency} onClose={() => setViewing(null)} onOpenItem={item => { postGuestEvent(business.id, table, { productId: item.id }); }} /> : <DishViewer product={viewing} currency={business.currency} onClose={() => setViewing(null)} />)}
     </div>
   );
 }

@@ -13,7 +13,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "assets:migrate": "node scripts/migrate-assets-to-storage.mjs",
-    "analytics:rollup": "node scripts/rollup-analytics.mjs"
+    "analytics:rollup": "node scripts/rollup-analytics.mjs",
+    "models:worker": "node scripts/process-models.mjs"
   },
   "dependencies": {
     "@playwright/test": "^1.63.0",

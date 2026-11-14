@@ -1,5 +1,5 @@
 import { db } from '@/db';
-import { assets, products, businesses } from '@/db/schema';
+import { assets, itemModels, products, businesses } from '@/db/schema';
 import { and, eq, or, sql } from 'drizzle-orm';
 import { getUser } from '@/lib/auth';
 import { storageGet } from '@/lib/storage';
@@ -34,7 +34,31 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     )
     .limit(1);
 
-  const isPublic = Boolean(publishedRef);
+  // Phase 4: processed model variants + posters are referenced from
+  // item_models, not from the product row — they are public while the
+  // item's model is 'ready' on a published, non-suspended menu (exactly
+  // the set the guest menu payload hands out).
+  const [publishedModelRef] = await db
+    .select({ itemId: itemModels.itemId })
+    .from(itemModels)
+    .innerJoin(products, eq(products.id, itemModels.itemId))
+    .innerJoin(businesses, eq(businesses.id, products.businessId))
+    .where(
+      and(
+        eq(businesses.published, true),
+        eq(businesses.suspended, false),
+        eq(itemModels.status, 'ready'),
+        or(
+          eq(itemModels.highAssetId, id),
+          eq(itemModels.lowAssetId, id),
+          eq(itemModels.usdzAssetId, id),
+          eq(itemModels.posterAssetId, id),
+        ),
+      ),
+    )
+    .limit(1);
+
+  const isPublic = Boolean(publishedRef) || Boolean(publishedModelRef);
   let cacheControl: string;
   if (isPublic) {
     cacheControl = 'public, max-age=31536000, immutable';

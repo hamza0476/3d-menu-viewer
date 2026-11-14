@@ -43,3 +43,33 @@
 .deal-item-card strong{font-size:11px;font-weight:550;display:block}
 .deal-item-card small{font-size:9px;color:#97a08c;display:block;margin-top:4px}
 .deal-item-card em{font-style:normal;font-size:10px;font-weight:550;color:#6f8559;display:block;margin-top:4px}
+
+/* Phase 4 — progressive viewer poster layer */
+.viewer-poster{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;z-index:1;background:#f4f3ea;padding:24px}
+
+/* Phase 4 — 3D Studio pipeline panel */
+.model-panel{margin-top:26px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px}
+.model-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.model-panel-head p{color:var(--muted);font-size:11px;margin-top:5px;max-width:560px}
+.model-summary{display:flex;gap:8px;flex-wrap:wrap}
+.model-summary span{font-size:10px;font-weight:600;background:#f2f5ec;border:1px solid #e4ead9;color:#54703f;border-radius:999px;padding:4px 10px}
+.model-rows{margin-top:16px;display:flex;flex-direction:column;gap:10px}
+.model-row{display:flex;gap:14px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:13px 14px;background:#fdfefb}
+.model-thumb{width:64px;height:64px;border-radius:8px;object-fit:cover;background:#eef1e6;flex-shrink:0}
+.model-row-main{flex:1;min-width:0}
+.model-row-top{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.model-row-top h3{font-size:13px}
+.model-chip{font-size:9px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;border-radius:999px;padding:3px 8px;border:1px solid var(--line);color:#7a8474;background:#f5f6f1}
+.model-chip.ready{color:#3d6b34;border-color:#cfdfc2;background:#eef6e6}
+.model-chip.failed{color:#9c3a2d;border-color:#eecabf;background:#fbee9}
+.model-chip.failed{color:#9c3a2d;border-color:#eecabf;background:#fbeee9}
+.model-chip.queued,.model-chip.processing{color:#7a5b14;border-color:#eadfba;background:#fbf4dc}
+.model-meta{font-size:10.5px;color:#77816f;margin-top:5px;line-height:1.6}
+.model-error{font-size:10.5px;color:#9c3a2d;margin-top:5px}
+.model-quality{margin-top:8px;display:flex;flex-direction:column;gap:4px}
+.model-quality-row{display:flex;gap:8px;align-items:baseline;font-size:10.5px;color:#6b7663}
+.model-quality-row b{font-weight:650;color:var(--ink);min-width:118px}
+.grade-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;position:relative;top:1px}
+.grade-good{background:#5d8a3c}.grade-ok{background:#d3a72e}.grade-poor{background:#c2543a}
+.model-row-actions{display:flex;flex-direction:column;gap:7px;align-items:stretch}
+.model-note{font-size:10px;color:#97a08c;margin-top:12px;line-height:1.6}

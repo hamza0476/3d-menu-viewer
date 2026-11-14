@@ -4,7 +4,23 @@ import { products } from '@/db/schema';
 import { and, eq, inArray } from 'drizzle-orm';
 import { uid, activity } from '@/lib/auth';
 import { requireMembership } from '@/lib/tenancy';
+import { assetIdFromUrl, clearModelTracking, enqueueModelJob } from '@/lib/model-pipeline';
 import { DISH_TAG_IDS, DEALS_CATEGORY } from '@/lib/demo';
+
+// Phase 4: keep the 3D pipeline in step with the item's model URL. A new
+// or changed GLB queues a processing job; removing the model clears the
+// tracking. Best-effort by design — a pipeline hiccup must never fail the
+// owner's save (the 3D Studio has a manual Process/Retry button too).
+async function syncModelTracking(businessId: string, itemId: string, newModel: string | null, previousModel: string | null) {
+  try {
+    const next = assetIdFromUrl(newModel);
+    const prev = assetIdFromUrl(previousModel);
+    if (next && next !== prev) await enqueueModelJob(businessId, itemId);
+    else if (!next && prev) await clearModelTracking(businessId, itemId);
+  } catch (e) {
+    console.error('[products] model tracking sync failed:', e);
+  }
+}
 
 function values(b: Record<string, unknown>) {
   if (typeof b.name !== 'string' || !b.name.trim() || !Number.isInteger(b.price) || Number(b.price) < 0 || Number(b.price) > 1000000) throw new Error('Enter a name and a valid price.');
@@ -50,6 +66,7 @@ export async function POST(req: Request) {
     const data = values(await req.json());
     await assertValidDeal(business.id, undefined, data);
     const [product] = await db.insert(products).values({ ...data, id: uid(), businessId: business.id }).returning();
+    await syncModelTracking(business.id, product.id, product.model, null);
     await activity(business.id, product.isDeal ? `${product.name} added as a new deal` : `${product.name} added to your menu`);
     return NextResponse.json(product);
   } catch (e) {
@@ -65,8 +82,10 @@ export async function PATCH(req: Request) {
     const body = await req.json();
     const data = values(body);
     await assertValidDeal(business.id, body.id, data);
+    const [previous] = await db.select({ model: products.model }).from(products).where(and(eq(products.id, body.id), eq(products.businessId, business.id)));
     const [product] = await db.update(products).set(data).where(and(eq(products.id, body.id), eq(products.businessId, business.id))).returning();
     if (!product) return NextResponse.json({ error: 'Product not found.' }, { status: 404 });
+    await syncModelTracking(business.id, product.id, product.model, previous?.model ?? null);
     await activity(business.id, `${product.name} updated`);
     return NextResponse.json(product);
   } catch (e) {

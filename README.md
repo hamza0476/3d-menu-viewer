@@ -56,6 +56,19 @@ Guest scans, menu opens and dish views are recorded as raw events and folded int
 
 It rolls up yesterday (UTC) by default; `-- --day=YYYY-MM-DD` or `-- --days=N` backfill. Re-running a day is safe — it recomputes that day and can never double-count. The dashboard's Analytics tab reads the aggregates (today is merged live from raw events) and exports CSV from the same data.
 
+### 3D model pipeline
+Uploading a GLB to a dish queues it for processing (dashboard → *3D studio* shows every dish's status, the measured quality report and Retry). A worker drains the queue: it deep-validates the GLB (structure, buffers, triangle/texture counts — a corrupt file fails that one job, never the worker), then produces the guest variants — a **low** model served first and a **high** model swapped in behind it — plus, when configured, a rendered poster image and a USDZ for iOS AR.
+
+Run the worker by scheduling the script (it is deliberately a script, not an in-app daemon). Set `MODEL_WORKER_SECRET` in the app environment first, then e.g. in cron:
+
+```
+* * * * *  cd /path/to/platera && APP_URL=https://your-domain MODEL_WORKER_SECRET=<same secret> npm run models:worker
+```
+
+Each run drains up to 25 queued jobs (`-- --loop` keeps polling instead). Until the worker runs, the Studio honestly shows dishes as "Queued".
+
+**What processing actually does depends on configuration** (see `.env.example`): with no processor commands set, variants are faithful but *unoptimised* copies of the source and the Studio labels the processor "passthrough" — nothing is silently transcoded. To optimise for real, point `MODEL_OPTIMIZER_CMD` at an installed tool (e.g. gltfpack or gltf-transform) using `{in}`/`{out}` placeholders; its output is re-validated as a GLB before it is stored. Posters need `MODEL_POSTER_CMD="node scripts/render-poster.mjs {in} {out}"` plus a one-time `npx playwright install chromium` on the server. USDZ needs `MODEL_USDZ_CMD` pointing at a real converter; without one, iOS AR is simply not offered for that dish.
+
 ### Rate limiting
 Login, registration, password-reset requests, and verification resends are rate-limited in memory, per server process. This is enough for a single-instance deployment but resets on restart and is **not shared across multiple instances**. If you deploy behind a load balancer or on serverless with multiple concurrent instances, replace `src/lib/rate-limit.ts` with a shared store (e.g. Upstash Redis, Vercel KV) so limits are enforced consistently.
 
@@ -69,7 +82,7 @@ Login, registration, password-reset requests, and verification resends are rate-
 The smoke test requires Chromium and system libraries: `npx playwright install --with-deps chromium`. Override the target URL with `TEST_BASE_URL`.
 
 ## 3D scope
-Photo capture saves the source images but does **not** reconstruct a photorealistic mesh. For a faithful scan, process the images in an external photogrammetry service and upload its GLB result. Built-in dishes without a GLB use clearly labeled illustrative geometry. Rendering is device-dependent; this app does not claim automatic 4K reconstruction. Camera mode is a manual live-video overlay, not WebXR surface detection or world-anchored AR. Camera access requires HTTPS/localhost and user permission.
+Photo capture saves the source images but does **not** reconstruct a photorealistic mesh. For a faithful scan, process the images in an external photogrammetry service and upload its GLB result. Built-in dishes without a GLB use clearly labeled illustrative geometry. Rendering is device-dependent; this app does not claim automatic 4K reconstruction. Dishes with a processed model open in a progressive viewer — poster first, then the low-poly variant, then full detail — with real AR where the platform offers it (iOS Quick Look when a USDZ was produced, WebXR on supporting browsers); where neither exists, the in-page 3D viewer is the experience and Camera mode remains a manual live-video overlay. Camera access requires HTTPS/localhost and user permission.
 
 ## Data and deployment notes
 Files are stored as objects in storage (Cloudflare R2, or local disk in development) — the database keeps only asset metadata (storage key, MIME, size, dimensions, SHA-256); it never holds file bytes. QR codes are generated locally in the browser. Assets referenced by a published menu are public for guests; assets of unpublished restaurants are private and reachable only by their owner or via short-lived signed preview URLs. Restaurant maps use Google Maps embeds without an API key. Demo item view counts are explicitly labeled; new guest interactions are tracked separately in recent activity. Menu prices are stored to 2 decimal places even for 3-decimal currencies (KWD, BHD, OMR), rounding for display consistency. Dietary and allergen tags are entered by the restaurant owner and are not independently verified by the platform — the guest menu carries a standing reminder to confirm with staff, which should stay in place for liability reasons in most jurisdictions. Favorites are stored in the guest's own browser (`localStorage`), not the database, so they don't carry across devices and aren't visible to the restaurant. "Deals" is a reserved, built-in category name — it's not stored in the owner-editable categories list and can't be added, renamed into, or deleted; an item is marked as a deal via its own toggle instead. Deleting a menu item that's used inside an existing deal is blocked until that item is removed from the deal first, so a published deal can't silently end up with a missing item. For a large public deployment, add object storage, a shared (multi-instance) rate limit store, database backups, and a dedicated event analytics pipeline.

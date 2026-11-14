@@ -49,6 +49,11 @@ export const DISH_TAGS = [
 export type DishTagId = typeof DISH_TAGS[number]['id'];
 export const DISH_TAG_IDS = DISH_TAGS.map(t => t.id) as DishTagId[];
 export const dishTagLabel = (id: string) => DISH_TAGS.find(t => t.id === id)?.label || id;
-export type Product = { id: string; businessId: string; name: string; description: string; price: number; originalPrice: number | null; category: string; image: string; photos: string[]; tags: string[]; model: string | null; available: boolean; isDeal: boolean; dealItems: string[]; views: number; createdAt?: string };
+export type Product = { id: string; businessId: string; name: string; description: string; price: number; originalPrice: number | null; category: string; image: string; photos: string[]; tags: string[]; model: string | null; model3d?: Model3d | null; available: boolean; isDeal: boolean; dealItems: string[]; views: number; createdAt?: string };
+// Phase 4: the processed-model bundle the guest API attaches when an
+// item's pipeline run is ready — poster first, low variant for the first
+// render, high variant as the progressive upgrade, USDZ for iOS Quick
+// Look. Any entry may be null (e.g. no poster was produced).
+export type Model3d = { poster: string | null; low: string | null; high: string | null; usdz: string | null; lowBytes: number | null; highBytes: number | null };
 export type Business = { id: string; name: string; tagline: string; city: string; province: string; address: string; phone: string; currency: CurrencyCode; published: boolean; suspended: boolean; categories: string[] };
 export type Workspace = { user: { name: string; email: string; demo: boolean; emailVerified: boolean }; business: Business; products: Product[]; activities: { id: string; text: string; type: string; createdAt: string }[] };
