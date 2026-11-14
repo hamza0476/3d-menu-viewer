@@ -6,6 +6,7 @@ import { and, eq } from 'drizzle-orm';
 import GuestMenu from '@/components/guest-menu';
 import type { CurrencyCode } from '@/lib/demo';
 import { resolveQr } from '@/lib/qr-data';
+import { attachModelBundles } from '@/lib/model-data';
 import { isQrCodeShape } from '@/lib/qr';
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -35,7 +36,7 @@ export default async function MenuPage({ params, searchParams }: { params: Promi
     const resolved = await resolveQr(t);
     if (resolved && resolved.business.id === id && resolved.table) table = { label: resolved.table.label, code: resolved.qr.code };
   }
-  const items = await db.select().from(products).where(and(eq(products.businessId, id), eq(products.available, true)));
+  const items = await attachModelBundles(await db.select().from(products).where(and(eq(products.businessId, id), eq(products.available, true))));
   return (
     <GuestMenu
       table={table}
