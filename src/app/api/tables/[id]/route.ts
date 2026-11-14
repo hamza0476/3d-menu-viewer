@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { qrCodes, tables } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
-import { requireMembership } from '@/lib/tenancy';
+import { requireMembership, roleAllowed } from '@/lib/tenancy';
 
 // Scoped to the owner's own restaurant: a table id from another restaurant
 // is indistinguishable from a missing one (404 either way).
@@ -14,6 +14,7 @@ async function ownTable(businessId: string, id: string) {
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const membership = await requireMembership();
   if (!membership) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 });
+  if (!roleAllowed(membership.role, 'manager')) return NextResponse.json({ error: 'Your role does not allow this. Ask the owner or a manager.' }, { status: 403 });
   const { id } = await params;
   const table = await ownTable(membership.business.id, id);
   if (!table) return NextResponse.json({ error: 'Table not found.' }, { status: 404 });
@@ -40,6 +41,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const membership = await requireMembership();
   if (!membership) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 });
+  if (!roleAllowed(membership.role, 'manager')) return NextResponse.json({ error: 'Your role does not allow this. Ask the owner or a manager.' }, { status: 403 });
   const { id } = await params;
   const table = await ownTable(membership.business.id, id);
   if (!table) return NextResponse.json({ error: 'Table not found.' }, { status: 404 });

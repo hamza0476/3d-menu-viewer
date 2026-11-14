@@ -36,6 +36,20 @@
       "when": 1794635912847,
       "tag": "0004_item-models-pipeline",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794651530348,
+      "tag": "0005_safe_phalanx",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794652014018,
+      "tag": "0006_petite_maelstrom",
+      "breakpoints": true
     }
   ]
 }

@@ -50,7 +50,8 @@ export default async function MenuPage({ params, searchParams }: { params: Promi
         city: business.city, address: business.address, province: business.province,
         phone: business.phone, currency: business.currency as CurrencyCode,
         published: business.published, suspended: business.suspended,
-        categories: (business.categories as string[]) || ['Starters', 'Main courses', 'Desserts', 'Drinks']
+        categories: (business.categories as string[]) || ['Starters', 'Main courses', 'Desserts', 'Drinks'],
+        categoriesUr: (business.categoriesUr as (string | null)[] | null) ?? null
       }}
       products={items.map(p => ({
         id: p.id, businessId: p.businessId, name: p.name,
@@ -60,7 +61,9 @@ export default async function MenuPage({ params, searchParams }: { params: Promi
         tags: (p.tags as string[]) || [], model: p.model,
         available: p.available, isDeal: p.isDeal,
         dealItems: (p.dealItems as string[]) || [],
-        views: p.views, createdAt: p.createdAt?.toISOString()
+        views: p.views, createdAt: p.createdAt?.toISOString(),
+        nameUr: p.nameUr, descriptionUr: p.descriptionUr,
+        spiceLevel: p.spiceLevel, serves: p.serves
       }))}
     />
   );

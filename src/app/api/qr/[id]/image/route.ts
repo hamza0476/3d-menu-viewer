@@ -5,7 +5,7 @@ import { db } from '@/db';
 import { assets, qrCodes } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { uid } from '@/lib/auth';
-import { requireMembership } from '@/lib/tenancy';
+import { requireMembership, roleAllowed } from '@/lib/tenancy';
 import { storagePut } from '@/lib/storage';
 import { qrResolvePath } from '@/lib/qr';
 
@@ -17,6 +17,7 @@ import { qrResolvePath } from '@/lib/qr';
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const membership = await requireMembership();
   if (!membership) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 });
+  if (!roleAllowed(membership.role, 'manager')) return NextResponse.json({ error: 'Your role does not allow this. Ask the owner or a manager.' }, { status: 403 });
   const { id } = await params;
   const [qr] = await db.select().from(qrCodes).where(and(eq(qrCodes.id, id), eq(qrCodes.businessId, membership.business.id)));
   if (!qr) return NextResponse.json({ error: 'QR code not found.' }, { status: 404 });

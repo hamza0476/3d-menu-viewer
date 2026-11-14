@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { qrCodes } from '@/db/schema';
 import { and, eq } from 'drizzle-orm';
-import { requireMembership } from '@/lib/tenancy';
+import { requireMembership, roleAllowed } from '@/lib/tenancy';
 import { generateQrCode } from '@/lib/qr';
 
 async function ownQr(businessId: string, id: string) {
@@ -15,6 +15,7 @@ async function ownQr(businessId: string, id: string) {
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const membership = await requireMembership();
   if (!membership) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 });
+  if (!roleAllowed(membership.role, 'manager')) return NextResponse.json({ error: 'Your role does not allow this. Ask the owner or a manager.' }, { status: 403 });
   const { id } = await params;
   const qr = await ownQr(membership.business.id, id);
   if (!qr) return NextResponse.json({ error: 'QR code not found.' }, { status: 404 });
@@ -30,6 +31,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const membership = await requireMembership();
   if (!membership) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 });
+  if (!roleAllowed(membership.role, 'manager')) return NextResponse.json({ error: 'Your role does not allow this. Ask the owner or a manager.' }, { status: 403 });
   const { id } = await params;
   const qr = await ownQr(membership.business.id, id);
   if (!qr) return NextResponse.json({ error: 'QR code not found.' }, { status: 404 });

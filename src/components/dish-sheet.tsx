@@ -3,7 +3,8 @@ import { useState } from 'react';
 import { Box, Heart, Info, Sparkles } from 'lucide-react';
 import { Modal, money } from './ui';
 import { DISH_TAGS, dishTagLabel, type Product } from '@/lib/demo';
-import type { GuestStrings } from '@/lib/guest-i18n';
+import { localizedCategory, localizedDishDescription, localizedDishName, spiceLabel, type GuestLang, type GuestStrings } from '@/lib/guest-i18n';
+import { DEALS_CATEGORY } from '@/lib/demo';
 
 // Dish detail sheet (Phase 5): what a guest sees when they tap a dish in
 // the book — big photo, full description, price, the dietary/allergen
@@ -12,10 +13,13 @@ import type { GuestStrings } from '@/lib/guest-i18n';
 // existing DishViewer (progressive bundle or classic fallback), which is
 // also the moment the 3d_open event fires — opening this sheet fired
 // item_view, exactly like tapping a dish in the list view.
-export default function DishSheet({ product, currency, strings, isFavorite, onToggleFavorite, onView3d, onClose }: {
+export default function DishSheet({ product, currency, strings, lang = 'en', categories = [], categoriesUr = null, isFavorite, onToggleFavorite, onView3d, onClose }: {
   product: Product;
   currency: string;
   strings: GuestStrings;
+  lang?: GuestLang;
+  categories?: string[];
+  categoriesUr?: (string | null)[] | null;
   isFavorite: boolean;
   onToggleFavorite: (id: string) => void;
   onView3d: (p: Product) => void;
@@ -28,7 +32,7 @@ export default function DishSheet({ product, currency, strings, isFavorite, onTo
   const hasReal3d = Boolean(product.model || (product.model3d && (product.model3d.low || product.model3d.high)));
 
   return (
-    <Modal title={product.name} subtitle={product.category} onClose={onClose}>
+    <Modal title={localizedDishName(product, lang)} subtitle={product.isDeal ? strings.deals : localizedCategory(product.category, categories, categoriesUr, lang)} onClose={onClose}>
       <div style={{ position: 'relative' }}>
         {/* eslint-disable-next-line @next/next/no-img-element -- guest dish photo, same call as the guest grid */}
         <img src={photo} alt={product.name} style={{ width: '100%', height: 250, objectFit: 'cover', display: 'block' }} />
@@ -46,13 +50,19 @@ export default function DishSheet({ product, currency, strings, isFavorite, onTo
       )}
       <div style={{ padding: '18px 25px 6px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14 }}>
-          <h3 dir="auto" style={{ fontSize: 17, letterSpacing: '-.3px' }}>{product.name}</h3>
+          <h3 dir="auto" style={{ fontSize: 17, letterSpacing: '-.3px' }}>{localizedDishName(product, lang)}</h3>
           <div className="price-row" style={{ whiteSpace: 'nowrap' }}>
             {product.originalPrice ? <span className="was">{money(product.originalPrice, currency)}</span> : null}
             <strong style={{ fontSize: 16 }}>{money(product.price, currency)}</strong>
           </div>
         </div>
-        <p dir="auto" style={{ fontSize: 12, color: '#7d8b70', lineHeight: 1.85, marginTop: 8 }}>{product.description}</p>
+        <p dir="auto" style={{ fontSize: 12, color: '#7d8b70', lineHeight: 1.85, marginTop: 8 }}>{localizedDishDescription(product, lang)}</p>
+        {(spiceLabel(product.spiceLevel, lang) || product.serves) && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 18px', marginTop: 10, fontSize: 12, color: '#5c6d52' }}>
+            {spiceLabel(product.spiceLevel, lang) && <span><strong style={{ color: '#718163' }}>{strings.spiceLevel}:</strong> {spiceLabel(product.spiceLevel, lang)}</span>}
+            {product.serves && <span dir="auto"><strong style={{ color: '#718163' }}>{strings.serves}:</strong> {product.serves}</span>}
+          </div>
+        )}
         {product.isDeal && product.dealItems.length > 0 && (
           <p style={{ fontSize: 11, color: '#7d8b70', marginTop: 8 }}><Sparkles size={13} /> {product.dealItems.length} {strings.dishes}</p>
         )}

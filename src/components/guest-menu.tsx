@@ -8,7 +8,7 @@ import DealViewer from './deal-viewer';
 import BookMenu from './book-menu';
 import DishSheet from './dish-sheet';
 import { resolveGuestView, type GuestViewMode } from '@/lib/guest-book';
-import { guestDir, guestStrings, isGuestLang, type GuestLang } from '@/lib/guest-i18n';
+import { guestDir, guestStrings, isGuestLang, localizedCategory, localizedDishDescription, localizedDishName, spiceLabel, type GuestLang } from '@/lib/guest-i18n';
 import type { BusinessBranding } from '@/lib/branding';
 const DishViewer = dynamic(() => import('./dish-viewer'), { ssr: false, loading: () => <div className="modal-overlay"><div className="loading-card"><Loader2 className="spin" />Preparing your 3D experience…</div></div> });
 
@@ -106,7 +106,7 @@ export default function GuestMenu({ business, products, table = null, branding =
 
   const filtered = products.filter(p =>
     (category === 'All items' || p.category === category) &&
-    p.name.toLowerCase().includes(search.toLowerCase()) &&
+    (p.name.toLowerCase().includes(search.toLowerCase()) || (p.nameUr || '').includes(search) || (p.descriptionUr || '').includes(search)) &&
     !avoid.some(a => p.tags.includes(a)) &&
     dietOnly.every(d => p.tags.includes(d)) &&
     (!favOnly || favorites.includes(p.id))
@@ -174,7 +174,7 @@ export default function GuestMenu({ business, products, table = null, branding =
           <span className="guest-3d-note"><Box size={18} /> A menu with a little more dimension.</span>
         </div>
         <div className="menu-toolbar">
-          <div className="category-tabs">{['All items', ...(products.some(p => p.isDeal) ? [DEALS_CATEGORY] : []), ...business.categories].map(c => <button key={c} onClick={() => setCategory(c)} className={category === c ? 'selected' : ''}>{c}</button>)}</div>
+          <div className="category-tabs">{['All items', ...(products.some(p => p.isDeal) ? [DEALS_CATEGORY] : []), ...business.categories].map(c => <button key={c} onClick={() => setCategory(c)} className={category === c ? 'selected' : ''}>{c === DEALS_CATEGORY ? strings.deals : c === 'All items' ? c : localizedCategory(c, business.categories, business.categoriesUr, lang)}</button>)}</div>
           <div className="menu-tools">
             <div className="search-input"><Search size={16} /><input placeholder="What are you craving?" aria-label="Search dishes" value={search} onChange={e => setSearch(e.target.value)} />{search && <button className="icon-btn" aria-label="Clear search" onClick={() => setSearch('')}><X size={14} /></button>}</div>
             <button className={'btn filter-btn ' + (showFilters ? 'selected' : '')} aria-label="Dietary filters" onClick={() => setShowFilters(!showFilters)}><SlidersHorizontal size={16} />{activeFilters > 0 && <span className="count-badge">{activeFilters}</span>}</button>
@@ -202,10 +202,11 @@ export default function GuestMenu({ business, products, table = null, branding =
                 </button>
               </div>
               <div className="guest-product-content" onClick={() => view(p)} style={{ cursor: 'pointer' }}>
-                <span className="eyebrow">{p.category}</span>
+                <span className="eyebrow">{p.isDeal ? strings.deals : localizedCategory(p.category, business.categories, business.categoriesUr, lang)}</span>
                 {p.tags.length > 0 && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, margin: '6px 0 0' }}>{p.tags.slice(0, 3).map(t => <span key={t} className="status-pill">{dishTagLabel(t)}</span>)}</div>}
-                <div><h3>{p.name}</h3><div className="price-row">{p.originalPrice ? <span className="was">{money(p.originalPrice, business.currency)}</span> : null}<strong>{money(p.price, business.currency)}</strong></div></div>
-                <p>{p.description}</p>
+                <div><h3 dir="auto">{localizedDishName(p, lang)}</h3><div className="price-row">{p.originalPrice ? <span className="was">{money(p.originalPrice, business.currency)}</span> : null}<strong>{money(p.price, business.currency)}</strong></div></div>
+                <p dir="auto">{localizedDishDescription(p, lang)}</p>
+                {(spiceLabel(p.spiceLevel, lang) || p.serves) && <p className="dish-meta">{spiceLabel(p.spiceLevel, lang) ? <span>{strings.spiceLevel}: {spiceLabel(p.spiceLevel, lang)}</span> : null}{p.serves ? <span dir="auto">{strings.serves}: {p.serves}</span> : null}</p>}
                 <span className="text-link">{p.isDeal ? "See what's included" : 'Take a closer look'} <ArrowUpRight size={15} /></span>
               </div>
             </article>
@@ -217,7 +218,7 @@ export default function GuestMenu({ business, products, table = null, branding =
       </>
       )}
       <footer className="guest-footer"><Brand small /><span>A little more than a menu.</span><span>{strings.pricesIn} {business.currency} · {business.name}</span></footer>
-      {sheet && <DishSheet product={sheet} currency={business.currency} strings={strings} isFavorite={favorites.includes(sheet.id)} onToggleFavorite={toggleFavorite} onView3d={open3dFromSheet} onClose={() => setSheet(null)} />}
+      {sheet && <DishSheet product={sheet} currency={business.currency} strings={strings} lang={lang} categories={business.categories} categoriesUr={business.categoriesUr} isFavorite={favorites.includes(sheet.id)} onToggleFavorite={toggleFavorite} onView3d={open3dFromSheet} onClose={() => setSheet(null)} />}
       {viewing && (viewing.isDeal ? <DealViewer deal={viewing} items={products} currency={business.currency} onClose={() => setViewing(null)} onOpenItem={item => { postGuestEvent(business.id, table, { productId: item.id }); }} /> : <DishViewer product={viewing} currency={business.currency} onClose={() => setViewing(null)} />)}
     </div>
   );

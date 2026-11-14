@@ -150,3 +150,10 @@
 .book-leaving-next,.book-leaving-prev{animation:none}
 .book-card,.guest-product{transition:none}
 }
+
+/* Phase 6: spice/serves meta line on guest dish cards (book + list). */
+.book-card-meta, .dish-meta { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 11px; color: #718163; margin-top: 6px; }
+
+/* Phase 6: category template picker in Settings. */
+.category-template { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; padding: 12px; border: 1px dashed #c9d4b8; border-radius: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.category-template-actions { display: flex; gap: 8px; align-items: center; }

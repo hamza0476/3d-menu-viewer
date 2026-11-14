@@ -39,19 +39,22 @@ export type BookStructure = {
   chapters: BookChapter[];
 };
 
-export function buildBook(products: Product[], categories: string[], moreLabel = "More from the kitchen"): BookStructure {
+export function buildBook(products: Product[], categories: string[], moreLabel = "More from the kitchen", localize?: (category: string) => string): BookStructure {
+  // Phase 6: chapter titles pass through the caller's localizer (Urdu
+  // category names / the localized "Deals") when one is supplied.
+  const L = (name: string) => (localize ? localize(name) : name);
   const groups: { name: string; items: Product[] }[] = [];
   const used = new Set<string>();
 
   const deals = products.filter((p) => p.isDeal);
   if (deals.length) {
-    groups.push({ name: DEALS_CATEGORY, items: deals });
+    groups.push({ name: L(DEALS_CATEGORY), items: deals });
     deals.forEach((p) => used.add(p.id));
   }
   for (const category of categories) {
     const items = products.filter((p) => !used.has(p.id) && p.category === category);
     if (items.length) {
-      groups.push({ name: category, items });
+      groups.push({ name: L(category), items });
       items.forEach((p) => used.add(p.id));
     }
   }

@@ -1,10 +1,11 @@
 import { db } from '@/db';
-import { users, sessions, businesses, products, activities, verificationTokens } from '@/db/schema';
+import { users, sessions, businesses, products, activities, verificationTokens, memberships } from '@/db/schema';
 import { cookies, headers } from 'next/headers';
 import { rateLimit, clientIp } from './rate-limit';
 import { eq, and, gt } from 'drizzle-orm';
 import { randomBytes, scryptSync, timingSafeEqual, createHash } from 'crypto';
 import { demoProducts } from './demo';
+import { PK_TEMPLATES } from './pk-templates';
 export const uid = () => randomBytes(12).toString('hex');
 // Session and verification tokens are stored in the database ONLY as SHA-256
 // hashes. The raw token exists solely in the user's cookie / emailed link, so
@@ -19,16 +20,24 @@ export async function setSession(userId: string, days = 30) { const token = rand
 // Thrown when an anonymous visitor's connection has created too many demo
 // workspaces; the workspace route turns this into a 429.
 export class DemoCreationLimitError extends Error { constructor() { super('Too many demo workspaces created from this connection. Please sign up or try again later.'); } }
-export async function seedBusiness(ownerId: string, name = 'The Green Fork') {
+export async function seedBusiness(ownerId: string, name = 'Zaiqa Dastarkhwan', templateId?: string) {
   const id = uid();
-  await db.insert(businesses).values({ id, ownerId, name, tagline: 'Fresh ingredients. Thoughtfully made.', city: 'Vancouver', province: 'British Columbia', address: '128 West 4th Avenue', phone: '+1 (604) 555-0128', published: true });
+  // Phase 6 (Pakistan pack, fixes G8): the seeded/demo restaurant is a
+  // fictional Lahori kitchen — invented name, address and a 555-range
+  // (fictional) phone — priced in PKR, with the Desi template's
+  // categories (or the template the owner picked at signup).
+  const template = (templateId && PK_TEMPLATES[templateId]) || PK_TEMPLATES.desi;
+  await db.insert(businesses).values({ id, ownerId, name, tagline: 'Asli Lahori zaika — karahi, biryani aur BBQ, fresh from the karahi.', city: 'Lahore', province: 'Punjab', address: '12 Food Street, Gawalmandi', phone: '+92 300 555 0142', currency: 'PKR', categories: [...template.categories], categoriesUr: [...template.categoriesUr], published: true });
+  // Phase 6: the owner always holds an 'owner' membership row — the
+  // memberships-backed guard (lib/tenancy) resolves workspaces through it.
+  await db.insert(memberships).values({ id: uid(), userId: ownerId, businessId: id, role: 'owner' });
   const seeded = demoProducts.map(p => ({ ...p, id: uid(), businessId: id, photos: [] as string[], model: null as string | null, originalPrice: null as number | null, isDeal: false, dealItems: [] as string[] }));
-  const burger = seeded.find(p => p.name === 'The house cheeseburger');
-  const dessert = seeded.find(p => p.name === 'Berry cheesecake');
-  if (burger) burger.originalPrice = 2200; // shows a strikethrough "was" price on a regular item
-  const dealPrice = burger && dessert ? Math.round((burger.price + dessert.price) * 0.85) : 2200;
-  const deal = burger && dessert ? [{
-    id: uid(), businessId: id, name: 'Burger & dessert duo', description: 'The house cheeseburger paired with our signature berry cheesecake, together for less.', price: dealPrice, originalPrice: burger.price + dessert.price, category: 'Deals', image: burger.image, photos: [] as string[], tags: [] as string[], model: null as string | null, available: true, isDeal: true, dealItems: [burger.id, dessert.id], views: 61,
+  const karahi = seeded.find(p => p.name === 'Chicken Karahi');
+  const kulfi = seeded.find(p => p.name === 'Kulfi Falooda');
+  if (karahi) karahi.originalPrice = 165000; // shows a strikethrough "was" price on a regular item
+  const dealPrice = karahi && kulfi ? Math.round((karahi.price + kulfi.price) * 0.85) : 155000;
+  const deal = karahi && kulfi ? [{
+    id: uid(), businessId: id, name: 'Karahi & kulfi duo', nameUr: 'کڑاہی اور قلفی ڈو', description: 'Our signature chicken karahi with a kulfi falooda to finish, together for less.', descriptionUr: 'ہماری خاص چکن کڑاہی اور آخر میں قلفی فالودہ — دونوں ایک ساتھ کم قیمت میں۔', price: dealPrice, originalPrice: karahi.price + kulfi.price, category: 'Deals', image: karahi.image, photos: [] as string[], tags: [] as string[], model: null as string | null, available: true, isDeal: true, dealItems: [karahi.id, kulfi.id], views: 61, spiceLevel: 'hot', serves: 'Serves 2–3',
   }] : [];
   await db.insert(products).values([...seeded, ...deal]);
   await db.insert(activities).values([{ id: uid(), businessId: id, text: 'Your digital menu is live. Welcome to Platera!', type: 'publish' }, { id: uid(), businessId: id, text: '6 delicious dishes added to your menu', type: 'product' }, { id: uid(), businessId: id, text: 'Your restaurant profile is ready to personalize', type: 'business' }]);
