@@ -5,6 +5,7 @@ import { getUser, uid, hashPassword, verifyPassword, setSession, seedBusiness, c
 import { sendVerificationEmail, sendPasswordResetEmail } from '@/lib/email';
 import { rateLimit, clientIp } from '@/lib/rate-limit';
 import { passwordProblem } from '@/lib/password-policy';
+import { isTemplateId } from '@/lib/pk-templates';
 import { eq } from 'drizzle-orm';
 import { cookies } from 'next/headers';
 
@@ -91,7 +92,7 @@ export async function POST(req: Request) {
   } else {
     userId = uid();
     await db.insert(users).values({ id: userId, name, email, password: hashPassword(password), demo: false });
-    await seedBusiness(userId, String(b.businessName || 'My restaurant'));
+    await seedBusiness(userId, String(b.businessName || 'My restaurant'), typeof b.template === 'string' && isTemplateId(b.template) ? b.template : undefined);
     await setSession(userId);
   }
   const token = await createToken(userId, 'verify', 24 * 3600000);

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { itemModels, modelJobs, products } from '@/db/schema';
 import { and, desc, eq, inArray } from 'drizzle-orm';
-import { requireMembership } from '@/lib/tenancy';
+import { requireMembership, roleAllowed } from '@/lib/tenancy';
 import { enqueueModelJob } from '@/lib/model-pipeline';
 import { gradeModel } from '@/lib/model-quality';
 
@@ -15,6 +15,7 @@ const url = (id: string | null) => (id ? '/api/assets/' + id : null);
 export async function GET() {
   const membership = await requireMembership();
   if (!membership) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 });
+  if (!roleAllowed(membership.role, 'manager')) return NextResponse.json({ error: 'Your role does not allow this. Ask the owner or a manager.' }, { status: 403 });
   const business = membership.business;
 
   const items = await db.select().from(products).where(eq(products.businessId, business.id)).orderBy(desc(products.createdAt));
@@ -86,6 +87,7 @@ export async function GET() {
 export async function POST(req: Request) {
   const membership = await requireMembership();
   if (!membership) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 });
+  if (!roleAllowed(membership.role, 'manager')) return NextResponse.json({ error: 'Your role does not allow this. Ask the owner or a manager.' }, { status: 403 });
   const body = await req.json().catch(() => ({})) as Record<string, unknown>;
   const itemId = typeof body.itemId === 'string' ? body.itemId : '';
   if (!itemId) return NextResponse.json({ error: 'Choose a menu item.' }, { status: 400 });

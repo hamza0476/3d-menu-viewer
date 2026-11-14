@@ -1,0 +1,1 @@
+ALTER TABLE "businesses" ALTER COLUMN "currency" SET DEFAULT 'PKR';

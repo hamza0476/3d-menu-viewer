@@ -2,11 +2,15 @@
 import { useRef, useState, useEffect } from 'react';
 import { Upload, Camera, ImagePlus, Box, X, Loader2, Check, Info, Sparkles, Calculator } from 'lucide-react';
 import { Modal, request, money } from './ui';
-import { DISH_TAGS, DEALS_CATEGORY, type Product } from '@/lib/demo';
+import { DISH_TAGS, DEALS_CATEGORY, SPICE_LEVELS, SPICE_LEVEL_LABELS, type Product } from '@/lib/demo';
 
 export default function ProductForm({ product, currency = 'USD', categories, allProducts, onClose, onSave }: { product: Partial<Product> | null; currency?: string; categories: string[]; allProducts: Product[]; onClose: () => void; onSave: (p: Product) => void }) {
   const [name, setName] = useState(product?.name || '');
   const [description, setDescription] = useState(product?.description || '');
+  const [nameUr, setNameUr] = useState(product?.nameUr || '');
+  const [descriptionUr, setDescriptionUr] = useState(product?.descriptionUr || '');
+  const [spiceLevel, setSpiceLevel] = useState(product?.spiceLevel || '');
+  const [serves, setServes] = useState(product?.serves || '');
   const [price, setPrice] = useState(product?.price ? String(product.price / 100) : '');
   const [originalPrice, setOriginalPrice] = useState(product?.originalPrice ? String(product.originalPrice / 100) : '');
   const [category, setCategory] = useState(product?.category && product.category !== DEALS_CATEGORY ? product.category : (categories[0] || 'Main courses'));
@@ -43,7 +47,7 @@ export default function ProductForm({ product, currency = 'USD', categories, all
     setError('');
     if (isDeal && dealItems.length < 2) { setError('Select at least 2 items to bundle into this deal.'); setBusy(false); return; }
     try {
-      const p = await request<Product>('/api/products', product?.id ? 'PATCH' : 'POST', { id: product?.id, name, description, price: Math.round(Number(price) * 100), originalPrice: originalPrice ? Math.round(Number(originalPrice) * 100) : null, category: isDeal ? DEALS_CATEGORY : category, image, photos, tags, model, available, isDeal, dealItems });
+      const p = await request<Product>('/api/products', product?.id ? 'PATCH' : 'POST', { id: product?.id, name, description, nameUr, descriptionUr, spiceLevel: spiceLevel || null, serves, price: Math.round(Number(price) * 100), originalPrice: originalPrice ? Math.round(Number(originalPrice) * 100) : null, category: isDeal ? DEALS_CATEGORY : category, image, photos, tags, model, available, isDeal, dealItems });
       onSave(p);
     } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   }
@@ -56,6 +60,12 @@ export default function ProductForm({ product, currency = 'USD', categories, all
             <label className="check-label" style={{ marginBottom: 4 }}><input type="checkbox" checked={isDeal} onChange={e => { setIsDeal(e.target.checked); setError(''); }} /> <Sparkles size={14} style={{ marginRight: 2 }} /> This is a Deal (bundle 2+ items)</label>
             <label>{isDeal ? 'Deal name' : 'Dish name'}<input required value={name} onChange={e => setName(e.target.value)} placeholder={isDeal ? 'e.g. Burger & dessert duo' : 'e.g. Avocado & grain bowl'} maxLength={120} /></label>
             <label>Description<textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Tell guests what makes it special…" rows={4} /></label>
+            <label>{isDeal ? 'Deal name in Urdu' : 'Dish name in Urdu'} <span className="optional">Optional — shown when guests switch to اردو</span><input value={nameUr} onChange={e => setNameUr(e.target.value)} placeholder="اردو میں نام لکھیں" dir="rtl" maxLength={120} /></label>
+            <label>Description in Urdu <span className="optional">Optional</span><textarea value={descriptionUr} onChange={e => setDescriptionUr(e.target.value)} placeholder="اردو میں تفصیل لکھیں…" rows={3} dir="rtl" /></label>
+            <div className="form-row">
+              <label>Spice level<select value={spiceLevel} onChange={e => setSpiceLevel(e.target.value)}><option value="">Not specified</option>{SPICE_LEVELS.map(l => <option key={l} value={l}>{SPICE_LEVEL_LABELS[l].en}</option>)}</select></label>
+              <label>Serves <span className="optional">Optional</span><input value={serves} onChange={e => setServes(e.target.value)} placeholder="e.g. Serves 2–3" maxLength={40} /></label>
+            </div>
             <div className="form-row">
               <label>{isDeal ? 'Deal price' : 'Price'} ({currency})<input type="number" min="0" max="10000" step="0.01" required value={price} onChange={e => setPrice(e.target.value)} placeholder="16.50" /></label>
               {isDeal ? <label>Category<input disabled value={DEALS_CATEGORY} /></label> : <label>Category<select value={category} onChange={e => setCategory(e.target.value)}>{categories.map(c => <option key={c}>{c}</option>)}</select></label>}

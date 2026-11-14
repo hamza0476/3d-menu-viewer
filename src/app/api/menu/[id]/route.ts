@@ -16,7 +16,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   // the guest menu page via lib/model-data.ts.
   const enriched = await attachModelBundles(items);
   const branding = await getBusinessBranding(id);
-  const payload = { business: { id: business.id, name: business.name, tagline: business.tagline, city: business.city, address: business.address, province: business.province, phone: business.phone, currency: business.currency, categories: business.categories }, branding, products: enriched };
+  const payload = { business: { id: business.id, name: business.name, tagline: business.tagline, city: business.city, address: business.address, province: business.province, phone: business.phone, currency: business.currency, categories: business.categories, categoriesUr: business.categoriesUr }, branding, products: enriched };
   // Phase 5: the public menu payload is CDN/SW-cacheable — it changes
   // only when the owner edits the menu. A content ETag (sha256 of the
   // exact JSON) + stale-while-revalidate lets edges and the service

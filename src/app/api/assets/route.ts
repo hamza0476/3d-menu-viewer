@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { assets } from '@/db/schema';
 import { getUser, ownerBusiness, uid } from '@/lib/auth';
+import { requireMembership, roleAllowed } from '@/lib/tenancy';
 import { validateUpload, sha256Hex, FORMAT_EXT, MAX_UPLOAD_BYTES } from '@/lib/media-validation';
 import { storagePut, storageDelete, storageMove } from '@/lib/storage';
 import { scanForMalware } from '@/lib/av-scan';
@@ -23,6 +24,11 @@ const MODEL_KINDS: AssetKind[] = ['model-source', 'model-high', 'model-low', 'mo
 export async function POST(req: Request) {
   const user = await getUser();
   if (!user) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 });
+  // Phase 6 role gate: staff cannot upload media (availability only).
+  // Owners/managers resolve through their membership; a user with no
+  // restaurant keeps flowing to the ownerBusiness check below.
+  const membership = await requireMembership();
+  if (membership && !roleAllowed(membership.role, 'manager')) return NextResponse.json({ error: 'Your role does not allow uploads. Ask the owner or a manager.' }, { status: 403 });
   const form = await req.formData();
   const file = form.get('file');
   if (!(file instanceof File)) return NextResponse.json({ error: 'Choose a file to upload.' }, { status: 400 });

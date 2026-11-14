@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { analyticsDaily, guestEvents, products, tables } from '@/db/schema';
 import { and, asc, eq, gte, inArray, lt } from 'drizzle-orm';
-import { requireMembership } from '@/lib/tenancy';
+import { requireMembership, roleAllowed } from '@/lib/tenancy';
 import { aggregateEvents, buildAnalyticsSummary, dayKey, dayRange, toCsv } from '@/lib/analytics';
 
 // Dashboard analytics (Phase 3 — fixes G11). Reads the nightly aggregates
@@ -15,6 +15,7 @@ import { aggregateEvents, buildAnalyticsSummary, dayKey, dayRange, toCsv } from 
 export async function GET(req: Request) {
   const membership = await requireMembership();
   if (!membership) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 });
+  if (!roleAllowed(membership.role, 'manager')) return NextResponse.json({ error: 'Analytics are available to owners and managers.' }, { status: 403 });
   const businessId = membership.business.id;
   const url = new URL(req.url);
   const daysParam = Number(url.searchParams.get('days') || 30);

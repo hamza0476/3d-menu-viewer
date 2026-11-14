@@ -30,3 +30,8 @@ export async function sendPasswordResetEmail(to: string, name: string, resetUrl:
   const html = shell('Reset your password', `Hi ${name || 'there'}, we received a request to reset your Platera password. This link expires in 1 hour. If you didn't request this, you can safely ignore this email.`, resetUrl, 'Reset password');
   return send(to, 'Reset your Platera password', html);
 }
+
+export async function sendInviteEmail(to: string, data: { inviterName: string; businessName: string; role: string; url: string }) {
+  const html = shell(`Join ${data.businessName} on Platera`, `${data.inviterName} invited you to help run ${data.businessName} on Platera as a ${data.role}. This invitation expires in 7 days. If you weren't expecting it, you can safely ignore this email.`, data.url, 'Accept invitation');
+  return send(to, `You're invited to join ${data.businessName} on Platera`, html);
+}

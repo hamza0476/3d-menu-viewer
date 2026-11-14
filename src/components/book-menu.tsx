@@ -2,9 +2,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, ChevronLeft, ChevronRight, Heart, Sparkles } from 'lucide-react';
 import { Brand, money } from './ui';
-import { dishTagLabel, type Business, type Product } from '@/lib/demo';
+import { DEALS_CATEGORY, dishTagLabel, type Business, type Product } from '@/lib/demo';
 import { buildBook } from '@/lib/guest-book';
-import { guestDir, type GuestLang, type GuestStrings } from '@/lib/guest-i18n';
+import { guestDir, localizedCategory, localizedDishDescription, localizedDishName, spiceLabel, type GuestLang, type GuestStrings } from '@/lib/guest-i18n';
 import type { BusinessBranding } from '@/lib/branding';
 
 // The Book Menu (Phase 5 — fixes G1): a cover, then one chapter per
@@ -35,7 +35,7 @@ export default function BookMenu({ business, branding, products, lang, strings, 
   onOpenDish: (p: Product) => void;
   onOpenDeal: (p: Product) => void;
 }) {
-  const book = useMemo(() => buildBook(products, business.categories, strings.moreFromTheKitchen), [products, business.categories, strings]);
+  const book = useMemo(() => buildBook(products, business.categories, strings.moreFromTheKitchen, (name) => name === DEALS_CATEGORY ? strings.deals : localizedCategory(name, business.categories, business.categoriesUr, lang)), [products, business.categories, business.categoriesUr, strings, lang]);
   const [page, setPage] = useState(0); // 0 = cover; 1..N = spreads[page-1]
   const [turning, setTurning] = useState<{ to: number; dir: 'next' | 'prev' } | null>(null);
   // Server render (and every first paint) is the STACKED book: complete
@@ -83,8 +83,9 @@ export default function BookMenu({ business, branding, products, lang, strings, 
           </button>
         </div>
         <div className="book-card-body" onClick={() => (p.isDeal ? onOpenDeal(p) : onOpenDish(p))}>
-          <h3 dir="auto">{p.name}</h3>
-          <p dir="auto">{p.description}</p>
+          <h3 dir="auto">{localizedDishName(p, lang)}</h3>
+          <p dir="auto">{localizedDishDescription(p, lang)}</p>
+          {(spiceLabel(p.spiceLevel, lang) || p.serves) && <p className="book-card-meta">{spiceLabel(p.spiceLevel, lang) ? <span>{strings.spiceLevel}: {spiceLabel(p.spiceLevel, lang)}</span> : null}{p.serves ? <span dir="auto">{strings.serves}: {p.serves}</span> : null}</p>}
           <div className="book-card-foot">
             <span className="book-price">{p.originalPrice ? <span className="was">{money(p.originalPrice, business.currency)}</span> : null}<strong>{money(p.price, business.currency)}</strong></span>
             {p.tags.length > 0 && <span className="book-tags">{p.tags.slice(0, 2).map(t => <span key={t} className="status-pill">{dishTagLabel(t)}</span>)}</span>}

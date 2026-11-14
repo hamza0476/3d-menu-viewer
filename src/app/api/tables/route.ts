@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { tables } from '@/db/schema';
 import { uid } from '@/lib/auth';
-import { requireMembership } from '@/lib/tenancy';
+import { requireMembership, roleAllowed } from '@/lib/tenancy';
 import { createTableQr, listTablesWithQr } from '@/lib/qr-data';
 
 // Owner table management (Phase 3 — fixes G2). The membership guard scopes
@@ -17,6 +17,7 @@ export async function GET() {
 export async function POST(req: Request) {
   const membership = await requireMembership();
   if (!membership) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 });
+  if (!roleAllowed(membership.role, 'manager')) return NextResponse.json({ error: 'Your role does not allow this. Ask the owner or a manager.' }, { status: 403 });
   const body = await req.json().catch(() => ({}));
   const label = typeof body.label === 'string' ? body.label.trim().slice(0, 60) : '';
   if (!label) return NextResponse.json({ error: 'Give the table a label, e.g. "Table 5".' }, { status: 400 });

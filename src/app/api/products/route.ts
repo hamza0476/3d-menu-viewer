@@ -3,9 +3,9 @@ import { db } from '@/db';
 import { products } from '@/db/schema';
 import { and, eq, inArray } from 'drizzle-orm';
 import { uid, activity } from '@/lib/auth';
-import { requireMembership } from '@/lib/tenancy';
+import { requireMembership, roleAllowed } from '@/lib/tenancy';
 import { assetIdFromUrl, clearModelTracking, enqueueModelJob } from '@/lib/model-pipeline';
-import { DISH_TAG_IDS, DEALS_CATEGORY } from '@/lib/demo';
+import { DISH_TAG_IDS, DEALS_CATEGORY, SPICE_LEVELS } from '@/lib/demo';
 
 // Phase 4: keep the 3D pipeline in step with the item's model URL. A new
 // or changed GLB queues a processing job; removing the model clears the
@@ -34,8 +34,16 @@ function values(b: Record<string, unknown>) {
   }
   const dealItems = Array.isArray(b.dealItems) ? Array.from(new Set(b.dealItems.filter((d): d is string => typeof d === 'string'))) : [];
   if (isDeal && dealItems.length < 2) throw new Error('Select at least 2 items to bundle into this deal.');
+  // Phase 6: Urdu name/description (empty -> null, guests fall back to
+  // English per field), spice level (closed list) and a free-text serves
+  // note ("Serves 2–3", "Family pack").
+  const urduText = (v: unknown, max: number) => typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null;
   return {
     name: b.name.trim().slice(0, 120),
+    nameUr: urduText(b.nameUr, 120),
+    descriptionUr: urduText(b.descriptionUr, 2000),
+    spiceLevel: typeof b.spiceLevel === 'string' && (SPICE_LEVELS as readonly string[]).includes(b.spiceLevel) ? b.spiceLevel : null,
+    serves: urduText(b.serves, 40),
     description: String(b.description || '').slice(0, 2000),
     price: Number(b.price),
     originalPrice,
@@ -62,6 +70,7 @@ export async function POST(req: Request) {
   const membership = await requireMembership();
   if (!membership) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 });
   const business = membership.business;
+  if (!roleAllowed(membership.role, 'manager')) return NextResponse.json({ error: 'Your role does not allow this. Ask the owner or a manager.' }, { status: 403 });
   try {
     const data = values(await req.json());
     await assertValidDeal(business.id, undefined, data);
@@ -80,6 +89,16 @@ export async function PATCH(req: Request) {
   const business = membership.business;
   try {
     const body = await req.json();
+    if (!roleAllowed(membership.role, 'manager')) {
+      // Staff (plan §6): availability toggles only — an {id, available}
+      // body and nothing else. Anything richer is a menu edit.
+      const keys = Object.keys(body).filter((k) => k !== 'id');
+      if (!(typeof body.id === 'string' && keys.length === 1 && keys[0] === 'available' && typeof body.available === 'boolean')) return NextResponse.json({ error: 'Staff can only change dish availability.' }, { status: 403 });
+      const [toggled] = await db.update(products).set({ available: body.available }).where(and(eq(products.id, body.id), eq(products.businessId, business.id))).returning();
+      if (!toggled) return NextResponse.json({ error: 'Product not found.' }, { status: 404 });
+      await activity(business.id, `${toggled.name} marked ${toggled.available ? 'available' : 'unavailable'}`);
+      return NextResponse.json(toggled);
+    }
     const data = values(body);
     await assertValidDeal(business.id, body.id, data);
     const [previous] = await db.select({ model: products.model }).from(products).where(and(eq(products.id, body.id), eq(products.businessId, business.id)));
@@ -97,6 +116,7 @@ export async function DELETE(req: Request) {
   const membership = await requireMembership();
   if (!membership) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 });
   const business = membership.business;
+  if (!roleAllowed(membership.role, 'manager')) return NextResponse.json({ error: 'Your role does not allow this. Ask the owner or a manager.' }, { status: 403 });
   const { id } = await req.json();
   const deals = await db.select({ id: products.id, name: products.name, dealItems: products.dealItems }).from(products).where(and(eq(products.businessId, business.id), eq(products.isDeal, true)));
   const usedIn = deals.find(d => d.dealItems.includes(id));
