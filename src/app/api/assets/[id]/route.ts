@@ -11,7 +11,8 @@ import { verifyAssetSignature } from '@/lib/asset-signing';
 // including GLBs of UNPUBLISHED restaurants — with a 1-year immutable
 // public cache header. Now an asset is public only while it is referenced
 // by a menu item of a published, non-suspended restaurant (that is what
-// the guest menu loads). Everything else is private and requires either
+// the guest menu loads), or — Phase 5 — a logo/cover branding asset of
+// such a restaurant. Everything else is private and requires either
 // the owner's session or a short-lived signed URL (see ./preview).
 // Private bytes are never sent with a public/immutable cache header, and
 // unknown-or-forbidden ids both answer 404 so ids cannot be probed.
@@ -58,7 +59,20 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     )
     .limit(1);
 
-  const isPublic = Boolean(publishedRef) || Boolean(publishedModelRef);
+  // Phase 5: business branding (logo/cover) is public while the business
+  // it belongs to is published and not suspended — the book cover shows
+  // it to every guest, and unpublishing must revoke it like any other
+  // menu imagery. Only logo/cover kinds qualify, only ready assets.
+  const [publishedBrandingRef] =
+    asset.businessId && (asset.kind === 'logo' || asset.kind === 'cover') && asset.status === 'ready'
+      ? await db
+          .select({ businessId: businesses.id })
+          .from(businesses)
+          .where(and(eq(businesses.id, asset.businessId), eq(businesses.published, true), eq(businesses.suspended, false)))
+          .limit(1)
+      : [];
+
+  const isPublic = Boolean(publishedRef) || Boolean(publishedModelRef) || Boolean(publishedBrandingRef);
   let cacheControl: string;
   if (isPublic) {
     cacheControl = 'public, max-age=31536000, immutable';

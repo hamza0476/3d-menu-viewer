@@ -1,10 +1,15 @@
 'use client';
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { Box, Search, MapPin, ArrowUpRight, Sprout, Loader2, UtensilsCrossed, X, SlidersHorizontal, Heart, Sparkles } from 'lucide-react';
+import { BookOpen, Box, LayoutList, Search, MapPin, ArrowUpRight, Sprout, Loader2, UtensilsCrossed, X, SlidersHorizontal, Heart, Sparkles } from 'lucide-react';
 import { Brand, Empty, request, money, QRPanel } from './ui';
 import { DEALS_CATEGORY, DISH_TAGS, dishTagLabel, type Business, type Product } from '@/lib/demo';
 import DealViewer from './deal-viewer';
+import BookMenu from './book-menu';
+import DishSheet from './dish-sheet';
+import { resolveGuestView, type GuestViewMode } from '@/lib/guest-book';
+import { guestDir, guestStrings, isGuestLang, type GuestLang } from '@/lib/guest-i18n';
+import type { BusinessBranding } from '@/lib/branding';
 const DishViewer = dynamic(() => import('./dish-viewer'), { ssr: false, loading: () => <div className="modal-overlay"><div className="loading-card"><Loader2 className="spin" />Preparing your 3D experience…</div></div> });
 
 // Anonymous per-session id for event de-duplication (Phase 3, S12). It is
@@ -24,7 +29,7 @@ function postGuestEvent(businessId: string, table: { code: string } | null, body
   void request('/api/menu/' + businessId, 'POST', payload).catch(() => {});
 }
 
-export default function GuestMenu({ business, products, table = null }: { business: Business; products: Product[]; table?: { label: string; code: string } | null }) {
+export default function GuestMenu({ business, products, table = null, branding = { logo: null, cover: null } }: { business: Business; products: Product[]; table?: { label: string; code: string } | null; branding?: BusinessBranding }) {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All items');
   const [viewing, setViewing] = useState<Product | null>(null);
@@ -33,12 +38,65 @@ export default function GuestMenu({ business, products, table = null }: { busine
   const [dietOnly, setDietOnly] = useState<string[]>([]);
   const [favOnly, setFavOnly] = useState(false);
   const [favorites, setFavorites] = useState<string[]>([]);
+  // Phase 5: the book is the default guest experience. Server render and
+  // first client paint agree on 'book'; the effect below downgrades to
+  // the non-animated book or the classic list for reduced-motion,
+  // low-end and returning guests with a stored choice (lib/guest-book).
+  const [viewMode, setViewMode] = useState<GuestViewMode>('book');
+  const [lang, setLang] = useState<GuestLang>('en');
+  const [sheet, setSheet] = useState<Product | null>(null);
+  const strings = guestStrings(lang);
 
   useEffect(() => {
     try { const raw = localStorage.getItem('platera-favorites-' + business.id); setFavorites(raw ? JSON.parse(raw) : []); } catch {}
     const visitKey = 'menu-visit-' + business.id + (table ? '-' + table.code : '');
     if (!sessionStorage.getItem(visitKey)) { sessionStorage.setItem(visitKey, '1'); postGuestEvent(business.id, table, {}); }
   }, [business.id, table]);
+
+  // Phase 5: resolve the guest view + language from stored choice and
+  // device signals, and register the PWA service worker. setState runs
+  // inside requestAnimationFrame (a paint callback, not the effect body)
+  // so the downgrade lands after first paint — the server-rendered book
+  // is already the no-JS/reduced-motion-safe content underneath.
+  useEffect(() => {
+    let storedView: string | null = null;
+    let storedLang: string | null = null;
+    try { storedView = localStorage.getItem('platera-view-' + business.id); storedLang = localStorage.getItem('platera-lang'); } catch {}
+    const nav = navigator as Navigator & { deviceMemory?: number; connection?: { saveData?: boolean } };
+    const resolved = resolveGuestView({
+      stored: storedView,
+      reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+      saveData: Boolean(nav.connection?.saveData),
+      deviceMemory: nav.deviceMemory ?? null,
+      hardwareConcurrency: nav.hardwareConcurrency ?? null,
+    });
+    const raf = requestAnimationFrame(() => {
+      if (resolved !== 'book') setViewMode(resolved);
+      if (isGuestLang(storedLang) && storedLang !== 'en') setLang(storedLang);
+    });
+    if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js').catch(() => {}); }
+    return () => cancelAnimationFrame(raf);
+  }, [business.id]);
+
+  function chooseView(next: 'book' | 'list') {
+    try { localStorage.setItem('platera-view-' + business.id, next); } catch {}
+    if (next === 'list') { setViewMode('list'); return; }
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    setViewMode(reduced ? 'book-static' : 'book');
+  }
+  function chooseLang(next: GuestLang) {
+    setLang(next);
+    try { localStorage.setItem('platera-lang', next); } catch {}
+  }
+  // Book dish tap: the detail sheet opens (item_view fires, exactly as a
+  // list tap); 3d_open fires only when the guest actually opens the 3D
+  // viewer from the sheet — the Phase 4 event semantics.
+  function openSheet(p: Product) { setSheet(p); postGuestEvent(business.id, table, { productId: p.id }); }
+  function open3dFromSheet(p: Product) {
+    setSheet(null);
+    setViewing(p);
+    if (p.model3d && (p.model3d.low || p.model3d.high)) postGuestEvent(business.id, table, { productId: p.id, type: '3d_open' });
+  }
 
   function view(p: Product) { setViewing(p); postGuestEvent(business.id, table, { productId: p.id }); if (p.model3d && (p.model3d.low || p.model3d.high)) postGuestEvent(business.id, table, { productId: p.id, type: '3d_open' }); }
   function toggleFavorite(pid: string) { setFavorites(prev => { const next = prev.includes(pid) ? prev.filter(x => x !== pid) : [...prev, pid]; try { localStorage.setItem('platera-favorites-' + business.id, JSON.stringify(next)); } catch {} return next; }); }
@@ -62,6 +120,36 @@ export default function GuestMenu({ business, products, table = null }: { busine
         <span className="guest-header-note"><UtensilsCrossed size={15} />Made for delicious discoveries.</span>
         <a href="/" className="text-link">For restaurant owners <ArrowUpRight size={15} /></a>
       </header>
+      {table && (
+        <div dir={guestDir(lang)} style={{ background: '#294c3b', color: '#fff', textAlign: 'center', padding: '10px 16px', fontSize: 14 }}>
+          {strings.youreAt} <strong>{table.label}</strong> · {business.name}, {business.city}
+        </div>
+      )}
+      <div className="guest-controls">
+        {viewMode !== 'list' && (
+          <button className="btn" onClick={() => chooseView('list')} aria-label={strings.searchDishes}><Search size={15} />{strings.searchDishes}</button>
+        )}
+        <div className="view-toggle" role="group" aria-label="Menu view">
+          <button className={viewMode !== 'list' ? 'selected' : ''} onClick={() => chooseView('book')} aria-pressed={viewMode !== 'list'}><BookOpen size={15} />{strings.bookView}</button>
+          <button className={viewMode === 'list' ? 'selected' : ''} onClick={() => chooseView('list')} aria-pressed={viewMode === 'list'}><LayoutList size={15} />{strings.listView}</button>
+        </div>
+        <button className="btn lang-toggle" onClick={() => chooseLang(lang === 'en' ? 'ur' : 'en')} aria-label="Switch language">{lang === 'en' ? 'اردو' : 'EN'}</button>
+      </div>
+      {viewMode !== 'list' ? (
+        <BookMenu
+          business={business}
+          branding={branding}
+          products={products}
+          lang={lang}
+          strings={strings}
+          mode={viewMode}
+          favorites={favorites}
+          onToggleFavorite={toggleFavorite}
+          onOpenDish={openSheet}
+          onOpenDeal={view}
+        />
+      ) : (
+      <>
       <div className="guest-qr-section">
         <div className="guest-qr-inner">
           <QRPanel id={business.id} name={business.name} compact />
@@ -71,11 +159,6 @@ export default function GuestMenu({ business, products, table = null }: { busine
           </div>
         </div>
       </div>
-      {table && (
-        <div style={{ background: '#294c3b', color: '#fff', textAlign: 'center', padding: '10px 16px', fontSize: 14 }}>
-          You&apos;re at <strong>{table.label}</strong> · {business.name}, {business.city}
-        </div>
-      )}
       <section className="guest-hero">
         <img src="/images/menu-hero.jpg" alt="A freshly prepared grain bowl" loading="eager" />
         <div>
@@ -131,7 +214,10 @@ export default function GuestMenu({ business, products, table = null }: { busine
         {!filtered.length && <Empty title="Nothing matches just yet." text="Try another category, search term, or loosen your filters."><button className="btn" onClick={resetAll}>Reset filters</button></Empty>}
         <div className="guest-food-note"><Sprout size={22} /><p>Good food, good company, and a little curiosity.<br /><span>Dietary tags are set by the restaurant as a helpful guide — please still let your server know about any allergies.</span></p></div>
       </main>
-      <footer className="guest-footer"><Brand small /><span>A little more than a menu.</span><span>Prices in {business.currency} · {business.name}</span></footer>
+      </>
+      )}
+      <footer className="guest-footer"><Brand small /><span>A little more than a menu.</span><span>{strings.pricesIn} {business.currency} · {business.name}</span></footer>
+      {sheet && <DishSheet product={sheet} currency={business.currency} strings={strings} isFavorite={favorites.includes(sheet.id)} onToggleFavorite={toggleFavorite} onView3d={open3dFromSheet} onClose={() => setSheet(null)} />}
       {viewing && (viewing.isDeal ? <DealViewer deal={viewing} items={products} currency={business.currency} onClose={() => setViewing(null)} onOpenItem={item => { postGuestEvent(business.id, table, { productId: item.id }); }} /> : <DishViewer product={viewing} currency={business.currency} onClose={() => setViewing(null)} />)}
     </div>
   );

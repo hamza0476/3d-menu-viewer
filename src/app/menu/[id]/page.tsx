@@ -7,6 +7,7 @@ import GuestMenu from '@/components/guest-menu';
 import type { CurrencyCode } from '@/lib/demo';
 import { resolveQr } from '@/lib/qr-data';
 import { attachModelBundles } from '@/lib/model-data';
+import { getBusinessBranding } from '@/lib/branding';
 import { isQrCodeShape } from '@/lib/qr';
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -18,6 +19,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return {
     title,
     description,
+    // Phase 5: per-restaurant PWA manifest (title/OG unchanged).
+    manifest: `/menu/${id}/manifest.webmanifest`,
     openGraph: { title, description, type: 'website', images: ['/images/menu-hero.jpg'] },
     twitter: { card: 'summary_large_image', title, description },
   };
@@ -37,9 +40,11 @@ export default async function MenuPage({ params, searchParams }: { params: Promi
     if (resolved && resolved.business.id === id && resolved.table) table = { label: resolved.table.label, code: resolved.qr.code };
   }
   const items = await attachModelBundles(await db.select().from(products).where(and(eq(products.businessId, id), eq(products.available, true))));
+  const branding = await getBusinessBranding(id);
   return (
     <GuestMenu
       table={table}
+      branding={branding}
       business={{
         id: business.id, name: business.name, tagline: business.tagline,
         city: business.city, address: business.address, province: business.province,

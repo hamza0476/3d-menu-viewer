@@ -6,14 +6,27 @@ import { activity, uid } from '@/lib/auth';
 import { rateLimit, clientIp } from '@/lib/rate-limit';
 import { resolveQr } from '@/lib/qr-data';
 import { attachModelBundles } from '@/lib/model-data';
+import { getBusinessBranding } from '@/lib/branding';
+import { sha256Hex } from '@/lib/media-validation';
 import { deviceClass, hashSessionAnonId, isQrCodeShape, shouldCountEvent } from '@/lib/qr';
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) { const { id } = await params; const [business] = await db.select().from(businesses).where(and(eq(businesses.id, id), eq(businesses.published, true), eq(businesses.suspended, false))); if (!business) return NextResponse.json({ error: 'This menu is not currently published.' }, { status: 404 }); const items = await db.select().from(products).where(and(eq(products.businessId, id), eq(products.available, true)));
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) { const { id } = await params; const [business] = await db.select().from(businesses).where(and(eq(businesses.id, id), eq(businesses.published, true), eq(businesses.suspended, false))); if (!business) return NextResponse.json({ error: 'This menu is not currently published.' }, { status: 404, headers: { 'Cache-Control': 'no-store' } }); const items = await db.select().from(products).where(and(eq(products.businessId, id), eq(products.available, true)));
   // Phase 4: attach the processed-model bundle (poster -> low -> high,
   // USDZ for iOS AR) for items whose pipeline run is ready — shared with
   // the guest menu page via lib/model-data.ts.
   const enriched = await attachModelBundles(items);
-  return NextResponse.json({ business: { id: business.id, name: business.name, tagline: business.tagline, city: business.city, address: business.address, province: business.province, phone: business.phone, currency: business.currency, categories: business.categories }, products: enriched }); }
+  const branding = await getBusinessBranding(id);
+  const payload = { business: { id: business.id, name: business.name, tagline: business.tagline, city: business.city, address: business.address, province: business.province, phone: business.phone, currency: business.currency, categories: business.categories }, branding, products: enriched };
+  // Phase 5: the public menu payload is CDN/SW-cacheable — it changes
+  // only when the owner edits the menu. A content ETag (sha256 of the
+  // exact JSON) + stale-while-revalidate lets edges and the service
+  // worker serve repeat opens instantly and revalidate in the
+  // background; a matching If-None-Match answers 304 with no body.
+  const body = JSON.stringify(payload);
+  const etag = '"' + sha256Hex(Buffer.from(body)) + '"';
+  const cacheHeaders = { 'Cache-Control': 'public, max-age=0, s-maxage=60, stale-while-revalidate=300', ETag: etag };
+  if (req.headers.get('if-none-match') === etag) return new NextResponse(null, { status: 304, headers: cacheHeaders });
+  return new NextResponse(body, { headers: { ...cacheHeaders, 'Content-Type': 'application/json' } }); }
 
 // Guest event pipeline (Phase 3 — fixes G11, S12). This endpoint is public
 // by necessity (guests are anonymous), so abuse control is layered:
