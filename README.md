@@ -45,6 +45,17 @@ Without `RESEND_API_KEY`, verification and reset links are logged to the server 
 ### Admin panel
 `/admin` is a platform-moderation view: every restaurant, owner verification status, item/view counts, and a suspend/reinstate control that immediately takes a menu offline for guests (independent of the owner's own publish toggle). It's gated by an allowlist, not a database role — set `ADMIN_EMAILS` to a comma-separated list of the email addresses that should have access (e.g. `ADMIN_EMAILS=you@yourcompany.com,ops@yourcompany.com`). With no `ADMIN_EMAILS` set, `/admin` is inaccessible to everyone.
 
+### Tables, QR codes & analytics
+Every restaurant gets a **master QR** plus **one QR per table** (dashboard → *QR codes* → *Tables & print kit*). A printed code encodes only `/m/<code>` — a short random token that resolves server-side to the menu with that table's context — so codes can be deactivated or regenerated without reprinting the rest, and every scan is attributed to its table. Downloads and print layouts (table tent, sticker, counter standee) are rendered server-side at print quality; the print page's *Save as PDF* produces the PDF.
+
+Guest scans, menu opens and dish views are recorded as raw events and folded into daily aggregates by a rollup script. **Schedule it nightly** (it is deliberately a script, not an in-app scheduler), e.g. in cron:
+
+```
+15 1 * * *  cd /path/to/platera && npm run analytics:rollup
+```
+
+It rolls up yesterday (UTC) by default; `-- --day=YYYY-MM-DD` or `-- --days=N` backfill. Re-running a day is safe — it recomputes that day and can never double-count. The dashboard's Analytics tab reads the aggregates (today is merged live from raw events) and exports CSV from the same data.
+
 ### Rate limiting
 Login, registration, password-reset requests, and verification resends are rate-limited in memory, per server process. This is enough for a single-instance deployment but resets on restart and is **not shared across multiple instances**. If you deploy behind a load balancer or on serverless with multiple concurrent instances, replace `src/lib/rate-limit.ts` with a shared store (e.g. Upstash Redis, Vercel KV) so limits are enforced consistently.
 

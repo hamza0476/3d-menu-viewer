@@ -7,7 +7,24 @@ import { DEALS_CATEGORY, DISH_TAGS, dishTagLabel, type Business, type Product } 
 import DealViewer from './deal-viewer';
 const ProductViewer = dynamic(() => import('./product-viewer'), { ssr: false, loading: () => <div className="modal-overlay"><div className="loading-card"><Loader2 className="spin" />Preparing your 3D experience…</div></div> });
 
-export default function GuestMenu({ business, products }: { business: Business; products: Product[] }) {
+// Anonymous per-session id for event de-duplication (Phase 3, S12). It is
+// generated per browser session, kept only in sessionStorage, and hashed
+// server-side before storage — it identifies a browsing session, never a
+// person, and rotates away when the session ends.
+function anonSessionId(): string {
+  try {
+    let sid = sessionStorage.getItem('platera-anon-session');
+    if (!sid) { sid = Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2, '0')).join(''); sessionStorage.setItem('platera-anon-session', sid); }
+    return sid;
+  } catch { return ''; }
+}
+function postGuestEvent(businessId: string, table: { code: string } | null, body: Record<string, unknown>) {
+  const payload: Record<string, unknown> = { ...body, sessionId: anonSessionId() };
+  if (table) payload.qrCode = table.code;
+  void request('/api/menu/' + businessId, 'POST', payload).catch(() => {});
+}
+
+export default function GuestMenu({ business, products, table = null }: { business: Business; products: Product[]; table?: { label: string; code: string } | null }) {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All items');
   const [viewing, setViewing] = useState<Product | null>(null);
@@ -19,10 +36,11 @@ export default function GuestMenu({ business, products }: { business: Business; 
 
   useEffect(() => {
     try { const raw = localStorage.getItem('platera-favorites-' + business.id); setFavorites(raw ? JSON.parse(raw) : []); } catch {}
-    if (!sessionStorage.getItem('menu-visit-' + business.id)) { sessionStorage.setItem('menu-visit-' + business.id, '1'); void request('/api/menu/' + business.id, 'POST', {}).catch(() => {}); }
-  }, [business.id]);
+    const visitKey = 'menu-visit-' + business.id + (table ? '-' + table.code : '');
+    if (!sessionStorage.getItem(visitKey)) { sessionStorage.setItem(visitKey, '1'); postGuestEvent(business.id, table, {}); }
+  }, [business.id, table]);
 
-  function view(p: Product) { setViewing(p); void request('/api/menu/' + business.id, 'POST', { productId: p.id }).catch(() => {}); }
+  function view(p: Product) { setViewing(p); postGuestEvent(business.id, table, { productId: p.id }); }
   function toggleFavorite(pid: string) { setFavorites(prev => { const next = prev.includes(pid) ? prev.filter(x => x !== pid) : [...prev, pid]; try { localStorage.setItem('platera-favorites-' + business.id, JSON.stringify(next)); } catch {} return next; }); }
   function toggleAvoid(t: string) { setAvoid(v => v.includes(t) ? v.filter(x => x !== t) : [...v, t]); }
   function toggleDiet(t: string) { setDietOnly(v => v.includes(t) ? v.filter(x => x !== t) : [...v, t]); }
@@ -53,6 +71,11 @@ export default function GuestMenu({ business, products }: { business: Business; 
           </div>
         </div>
       </div>
+      {table && (
+        <div style={{ background: '#294c3b', color: '#fff', textAlign: 'center', padding: '10px 16px', fontSize: 14 }}>
+          You&apos;re at <strong>{table.label}</strong> · {business.name}, {business.city}
+        </div>
+      )}
       <section className="guest-hero">
         <img src="/images/menu-hero.jpg" alt="A freshly prepared grain bowl" loading="eager" />
         <div>
@@ -109,7 +132,7 @@ export default function GuestMenu({ business, products }: { business: Business; 
         <div className="guest-food-note"><Sprout size={22} /><p>Good food, good company, and a little curiosity.<br /><span>Dietary tags are set by the restaurant as a helpful guide — please still let your server know about any allergies.</span></p></div>
       </main>
       <footer className="guest-footer"><Brand small /><span>A little more than a menu.</span><span>Prices in {business.currency} · {business.name}</span></footer>
-      {viewing && (viewing.isDeal ? <DealViewer deal={viewing} items={products} currency={business.currency} onClose={() => setViewing(null)} onOpenItem={item => { void request('/api/menu/' + business.id, 'POST', { productId: item.id }).catch(() => {}); }} /> : <ProductViewer product={viewing} currency={business.currency} onClose={() => setViewing(null)} />)}
+      {viewing && (viewing.isDeal ? <DealViewer deal={viewing} items={products} currency={business.currency} onClose={() => setViewing(null)} onOpenItem={item => { postGuestEvent(business.id, table, { productId: item.id }); }} /> : <ProductViewer product={viewing} currency={business.currency} onClose={() => setViewing(null)} />)}
     </div>
   );
 }

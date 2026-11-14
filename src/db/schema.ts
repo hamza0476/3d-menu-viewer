@@ -1,4 +1,4 @@
-import { pgTable, pgEnum, text, integer, timestamp, boolean, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, pgEnum, text, integer, timestamp, boolean, jsonb, date, uniqueIndex, index } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', { id: text('id').primaryKey(), name: text('name').notNull(), email: text('email').notNull().unique(), password: text('password').notNull(), demo: boolean('demo').notNull().default(false), emailVerified: boolean('email_verified').notNull().default(false) });
 export const sessions = pgTable('sessions', { token: text('token').primaryKey(), userId: text('user_id').notNull().references(() => users.id), expires: timestamp('expires').notNull() });
@@ -8,3 +8,20 @@ export const products = pgTable('products', { id: text('id').primaryKey(), busin
 export const activities = pgTable('activities', { id: text('id').primaryKey(), businessId: text('business_id').notNull().references(() => businesses.id), text: text('text').notNull(), type: text('type').notNull(), createdAt: timestamp('created_at').notNull().defaultNow() });
 export const assetKind = pgEnum('asset_kind', ['photo', 'model-source', 'model-high', 'model-low', 'model-usdz', 'poster', 'logo', 'cover', 'qr-print']);
 export const assets = pgTable('assets', { id: text('id').primaryKey(), ownerId: text('owner_id').notNull().references(() => users.id), businessId: text('business_id').references(() => businesses.id), kind: assetKind('kind').notNull().default('photo'), storageKey: text('storage_key').notNull().unique(), mime: text('mime').notNull(), bytes: integer('bytes').notNull(), width: integer('width'), height: integer('height'), sha256: text('sha256').notNull(), status: text('status').notNull().default('ready'), createdAt: timestamp('created_at').notNull().defaultNow() });
+// Phase 3 — tables, QR codes, guest events, daily analytics (fixes G2, G11).
+// A restaurant has physical tables; each table gets its own QR code, and one
+// master QR (table_id NULL) covers the counter / takeaway. The `code` on a QR
+// row is the unguessable token in the printed URL (/m/<code>) — the printout
+// never changes even if the target menu/table is re-pointed later.
+export const tables = pgTable('tables', { id: text('id').primaryKey(), businessId: text('business_id').notNull().references(() => businesses.id), label: text('label').notNull(), seats: integer('seats'), active: boolean('active').notNull().default(true), createdAt: timestamp('created_at').notNull().defaultNow() });
+export const qrCodes = pgTable('qr_codes', { id: text('id').primaryKey(), businessId: text('business_id').notNull().references(() => businesses.id), tableId: text('table_id').references(() => tables.id, { onDelete: 'cascade' }), code: text('code').notNull().unique(), label: text('label').notNull(), design: jsonb('design').$type<{ dark?: string; light?: string }>().notNull().default({}), active: boolean('active').notNull().default(true), createdAt: timestamp('created_at').notNull().defaultNow() });
+// Append-only raw guest events. Coarse metadata only: a rotating anonymous
+// session id (client-generated per browser session, stored SHA-256-hashed)
+// and a device class derived from the user agent — no IPs, no fingerprints,
+// no user-agent strings are stored (fixes G11; spam control is S12).
+export const guestEvents = pgTable('guest_events', { id: text('id').primaryKey(), businessId: text('business_id').notNull().references(() => businesses.id), qrCodeId: text('qr_code_id').references(() => qrCodes.id, { onDelete: 'set null' }), tableId: text('table_id').references(() => tables.id, { onDelete: 'set null' }), itemId: text('item_id').references(() => products.id, { onDelete: 'set null' }), type: text('type').notNull(), sessionAnonId: text('session_anon_id'), deviceClass: text('device_class'), createdAt: timestamp('created_at').notNull().defaultNow() }, (t) => [index('guest_events_business_created_idx').on(t.businessId, t.createdAt), index('guest_events_session_item_idx').on(t.sessionAnonId, t.itemId, t.type, t.createdAt)]);
+// Nightly rollups of guest_events, one row per (business, day, metric,
+// dimension). dimensionType is 'all' | 'table' | 'item'; dimensionId is ''
+// for 'all' so the unique key never involves NULLs. Re-running the rollup
+// for a day replaces that day's rows — it can never double-count.
+export const analyticsDaily = pgTable('analytics_daily', { id: text('id').primaryKey(), businessId: text('business_id').notNull().references(() => businesses.id), day: date('day').notNull(), metric: text('metric').notNull(), dimensionType: text('dimension_type').notNull(), dimensionId: text('dimension_id').notNull().default(''), count: integer('count').notNull().default(0) }, (t) => [uniqueIndex('analytics_daily_key_uq').on(t.businessId, t.day, t.metric, t.dimensionType, t.dimensionId)]);
