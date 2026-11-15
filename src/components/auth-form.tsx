@@ -20,7 +20,11 @@ export default function AuthForm({ onClose, onSuccess, menuId }: { onClose: () =
         {role === 'choose' ? (
           <div className="role-options">
             <button onClick={() => setRole('owner')}><Store size={26} /><span><strong>I’m a restaurant owner</strong><small>Create an account or manage your business.</small></span><ArrowRight size={19} /></button>
-            <a href={'/menu/' + menuId}><Utensils size={26} /><span><strong>I’m here for the food</strong><small>Explore the menu. No account needed.</small></span><ArrowRight size={19} /></a>
+            {menuId ? (
+              <a href={'/menu/' + menuId}><Utensils size={26} /><span><strong>I’m here for the food</strong><small>Explore the menu. No account needed.</small></span><ArrowRight size={19} /></a>
+            ) : (
+              <button disabled aria-disabled="true" style={{ opacity: 0.55, cursor: 'not-allowed' }}><Utensils size={26} /><span><strong>I’m here for the food</strong><small>No live menu yet — scan a table QR code, or check back once a restaurant publishes.</small></span></button>
+            )}
           </div>
         ) : view === 'forgot' ? (
           sent ? (
