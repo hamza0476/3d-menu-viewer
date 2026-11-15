@@ -1,20 +1,37 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Sprout, Box, QrCode, Eye, ArrowRight, UtensilsCrossed, Utensils, Camera, Store } from 'lucide-react';
 import AuthForm from './auth-form';
 
 export default function Landing() {
   const [auth, setAuth] = useState(false);
   const [foodLoading, setFoodLoading] = useState(false);
+  const [menuId, setMenuId] = useState('');
+  const [foodError, setFoodError] = useState(false);
+
+  // The guest entry points at the first live menu. Fetch it once on mount so
+  // both the hero button and the auth chooser card link somewhere real; when
+  // no restaurant has published yet there is no menu to link to.
+  useEffect(() => {
+    let live = true;
+    fetch('/api/menu/first', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => { if (live && data?.id) setMenuId(data.id); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, []);
 
   async function goToFood() {
+    if (menuId) { window.location.href = '/menu/' + menuId; return; }
     setFoodLoading(true);
+    setFoodError(false);
     try {
-      const res = await fetch('/api/menu/first');
+      const res = await fetch('/api/menu/first', { cache: 'no-store' });
       const data = await res.json();
-      if (data.id) window.location.href = '/menu/' + data.id;
+      if (data.id) { window.location.href = '/menu/' + data.id; return; }
     } catch {}
     setFoodLoading(false);
+    setFoodError(true);
   }
   const features = [
     { icon: Box, title: '3D Menu Experience', desc: 'Let guests explore your dishes in immersive 3D before ordering. Upload GLB models or use our built-in illustrative previews.' },
@@ -62,6 +79,11 @@ export default function Landing() {
               <Utensils size={17} /> I'm here for the food
             </button>
           </div>
+          {foodError && (
+            <p role="alert" style={{ marginTop: '14px', fontSize: '13px', color: '#9a3b2e', lineHeight: 1.6, maxWidth: '460px' }}>
+              No live menu yet — once a restaurant publishes, its menu will open here. If you have a table QR code, scanning it always works.
+            </p>
+          )}
         </div>
         <div style={{ position: 'relative' }}>
           <div style={{ background: '#fff', borderRadius: '16px', border: '1px solid #e8ebe4', overflow: 'hidden', boxShadow: '0 8px 40px rgba(0,0,0,.06)' }}>
@@ -125,7 +147,7 @@ export default function Landing() {
         <Sprout size={14} /> A little more than a menu.
       </footer>
 
-      {auth && <AuthForm menuId="" onClose={() => setAuth(false)} onSuccess={() => { window.location.reload(); }} />}
+      {auth && <AuthForm menuId={menuId} onClose={() => setAuth(false)} onSuccess={() => { window.location.reload(); }} />}
     </div>
   );
 }
